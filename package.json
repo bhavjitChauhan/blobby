@@ -2,7 +2,7 @@
   "name": "blobby",
   "version": "1.0.0",
   "main": "dist/index.js",
-  "author": "@sapphire",
+  "author": "Bhavjit Chauhan",
   "license": "UNLICENSE",
   "dependencies": {
     "@sapphire/decorators": "^5.0.0",
