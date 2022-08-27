@@ -1,7 +1,7 @@
 import { InteractionHandler, InteractionHandlerTypes, PieceContext } from '@sapphire/framework'
 import { codeBlock, isNullish } from '@sapphire/utilities'
 import { MessageAttachment, MessageEmbed, ModalSubmitInteraction } from 'discord.js'
-import { pjsKeys } from '../../lib/constants'
+import { RUN_ENVIRONMENTS, RUN_PJS_OPTIONS_KEYS } from '../../lib/constants'
 import { clamp, deserialize } from '../../lib/utils'
 import { launch } from 'puppeteer'
 import type { AceAjaxEditorElement } from '../../types'
@@ -19,9 +19,9 @@ export class ModalHandler extends InteractionHandler {
   public override async parse(interaction: ModalSubmitInteraction) {
     if (!interaction.customId.startsWith('pjs')) return this.none()
 
-    await interaction.deferReply()
-    const code = interaction.fields.getTextInputValue('code')
-    const options = deserialize(interaction.customId.replace('pjs', ''), pjsKeys)
+    if (!interaction.deferred && !interaction.replied) await interaction.deferReply()
+    const code = interaction.fields.getTextInputValue('input')
+    const options = deserialize(interaction.customId.replace('pjs', ''), RUN_PJS_OPTIONS_KEYS)
 
     options.width = clamp(parseInt(typeof options.width === 'string' ? options.width : '400'), 1, 5e3)
     options.height = clamp(parseInt(typeof options.height === 'string' ? options.height : '400'), 1, 5e3)
@@ -29,7 +29,7 @@ export class ModalHandler extends InteractionHandler {
     options.canvas = options.canvas ?? true
     options.loopProtector = options.loopProtector ?? true
 
-    return this.some({ code, ...(options as unknown as EvalOptions) })
+    return this.some({ code, ...(options as unknown as RunOptionsPJS) })
   }
   public async run(interaction: ModalSubmitInteraction, data: InteractionHandler.ParseResult<this>) {
     const { code, ...options } = data
@@ -41,7 +41,7 @@ export class ModalHandler extends InteractionHandler {
 
     const embed = new MessageEmbed()
       .setColor(success ? 'GREEN' : 'RED')
-      .setTitle('Processing.js Output')
+      .setTitle(`${RUN_ENVIRONMENTS['pjs']} Output`)
       .setFooter({ text: `${stopwatch.toString()}` })
 
     if (Array.isArray(logs) && logs.length) {
@@ -57,7 +57,7 @@ export class ModalHandler extends InteractionHandler {
     }
 
     let attachment = null
-    if (image instanceof Uint8Array) {
+    if (success && image instanceof Uint8Array) {
       attachment = new MessageAttachment(Buffer.from(image as Uint8Array), 'thumbnail.png')
       embed.setImage('attachment://thumbnail.png')
     }
@@ -70,7 +70,7 @@ export class ModalHandler extends InteractionHandler {
 
     return interaction.editReply({ embeds: [embed], files: attachment ? [attachment] : [] })
   }
-  private async eval(code: string, options: EvalOptions) {
+  private async eval(code: string, options: RunOptionsPJS) {
     let success = null,
       image = null,
       logs = null,
@@ -167,7 +167,7 @@ export class ModalHandler extends InteractionHandler {
   }
 }
 
-interface EvalOptions {
+interface RunOptionsPJS {
   width: number
   height: number
   delay: number
