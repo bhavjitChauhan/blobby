@@ -1,8 +1,8 @@
-import { join } from 'path';
+import { join } from 'path'
 
-export const rootDir = join(__dirname, '..', '..');
-export const srcDir = join(rootDir, 'src');
+export const rootDir = join(__dirname, '..', '..')
+export const srcDir = join(rootDir, 'src')
 
-export const RandomLoadingMessage = ['Computing...', 'Thinking...', 'Cooking some food', 'Give me a moment', 'Loading...'];
+export const RandomLoadingMessage = ['Computing...', 'Thinking...', 'Cooking some food', 'Give me a moment', 'Loading...']
 
-export const pjsKeys = ['width', 'height', 'delay', 'canvas', 'loopProtector'];
+export const pjsKeys = ['width', 'height', 'delay', 'canvas', 'loopProtector']
