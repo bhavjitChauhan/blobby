@@ -62,3 +62,39 @@ function getGuildInfo(guild: Guild | null) {
 	if (guild === null) return 'Direct Messages';
 	return `${guild.name}[${cyan(guild.id)}]`;
 }
+
+export function clamp(n: number, min: number, max: number) {
+	return Math.max(Math.min(n, max), min);
+}
+
+export function extractCodeBlock(content: string) {
+	const regex = /```(?:(\w+)\n)?\s*([^]+?)\s*```/i;
+	const match = regex.exec(content);
+	if (!match) return null;
+	return match[2];
+}
+
+export function extractCodeLine(content: string) {
+	const regex = /`([^`]+)`/i;
+	const match = regex.exec(content);
+	if (!match) return null;
+	return match[1];
+}
+
+export function extractCode(content: string) {
+	return extractCodeBlock(content) ?? extractCodeLine(content) ?? content;
+}
+
+export function serialize(obj: Record<string, any>, keys: Array<string>) {
+	const arr = [];
+	for (const key of keys) if (key in obj) arr.push(obj[key]);
+	const str = JSON.stringify(arr);
+	return str.substring(1, str.length - 1);
+}
+
+export function deserialize(str: string, keys: Array<string>) {
+	const arr = JSON.parse(`[${str}]`);
+	const obj: Record<string, any> = {};
+	for (const [i, key] of keys.entries()) obj[key] = arr[i];
+	return obj;
+}
