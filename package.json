@@ -5,6 +5,8 @@
   "author": "Bhavjit Chauhan",
   "license": "UNLICENSE",
   "dependencies": {
+    "@2toad/profanity": "^2.1.0",
+    "@discordjs/builders": "^1.2.0",
     "@sapphire/decorators": "^5.0.0",
     "@sapphire/discord-utilities": "^2.11.6",
     "@sapphire/discord.js-utilities": "^5.0.0",
@@ -22,6 +24,7 @@
     "discord-api-types": "^0.33.5",
     "discord.js": "^13.10.2",
     "dotenv-cra": "^3.0.2",
+    "ka-api": "github:bhavjitChauhan/ka-api",
     "puppeteer": "^16.2.0",
     "reflect-metadata": "^0.1.13"
   },
