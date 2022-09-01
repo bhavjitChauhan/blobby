@@ -32,7 +32,7 @@ export class UserCommand extends Command {
 
     const content = `Pong! Bot Latency ${Math.round(this.container.client.ws.ping)}ms. API Latency ${createdTime - interaction.createdTimestamp}ms.`
 
-    return await interaction.editReply({
+    return interaction.editReply({
       content: content,
     })
   }

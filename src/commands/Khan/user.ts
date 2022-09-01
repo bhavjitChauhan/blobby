@@ -4,10 +4,10 @@ import { MessageActionRow, MessageButton, MessageEmbed } from 'discord.js'
 import { profile } from 'ka-api'
 import { cookies } from '../../lib/khan-cookies'
 import { profanity } from '@2toad/profanity'
-import { bold, italic, time, underscore } from '@discordjs/builders'
-import { FOOTER_SEPARATOR, ZERO_WIDTH_SPACE_CHAR } from '../../lib/constants'
-import { pickRandom } from '../../lib/utils'
+import { time } from '@discordjs/builders'
+import { FOOTER_SEPARATOR } from '../../lib/constants'
 import { ValidationError } from '../../lib/errors'
+import { formatFieldHeading, formatFieldWarning } from '../../lib/utils'
 
 @ApplyOptions<Command.Options>({
   description: "Get a Khan Academy user's profile",
@@ -32,7 +32,7 @@ export class UserCommand extends Command {
     )
   }
 
-  private async getProfile(interaction: Command.ChatInputInteraction) {
+  private async getProfileData(interaction: Command.ChatInputInteraction) {
     const user = interaction.options.getString('user', true) as string
     if (profanity.exists(user)) throw new ValidationError(this.#INAPPROPRIATE_USER)
 
@@ -50,136 +50,121 @@ export class UserCommand extends Command {
     return { info: profileInfo, widgets: profileWidgets, avatar: avatarData, programs: userPrograms }
   }
 
-  private getProfileURL(profile: Profile) {
-    return `https://www.khanacademy.org/profile/${profile.info.data.user!.username ?? profile.info.data.user!.kaid}`
+  private profileURL(profileData: ProfileData) {
+    return `https://www.khanacademy.org/profile/${profileData.info.data.user!.username ?? profileData.info.data.user!.kaid}`
   }
 
-  private getAvatarURL(profile: Profile) {
-    return `https://cdn.kastatic.org${profile.avatar.data.user!.avatar.imageSrc.replace('/svg', '').replace('.svg', '.png')}`
+  private avatarURL(profileData: ProfileData) {
+    return `https://cdn.kastatic.org${profileData.avatar.data.user!.avatar.imageSrc.replace('/svg', '').replace('.svg', '.png')}`
   }
 
-  private getEmbeds(profile: Profile) {
+  private embeds(profileData: ProfileData) {
     const embed = new MessageEmbed()
       .setColor('GREEN')
-      .setTitle(profile.info.data.user!.nickname)
-      .setURL(this.getProfileURL(profile))
-      .setThumbnail(this.getAvatarURL(profile))
-      .setDescription(profile.info.data.user!.bio)
+      .setTitle(profileData.info.data.user!.nickname)
+      .setURL(this.profileURL(profileData))
+      .setThumbnail(this.avatarURL(profileData))
+      .setDescription(profileData.info.data.user!.bio)
       .addFields(
-        {
-          name: ZERO_WIDTH_SPACE_CHAR,
-          value: underscore(bold('Programs')),
-        },
+        formatFieldHeading('Programs'),
         {
           name: 'Programs Created',
-          value: profile.programs.scratchpads.length.toLocaleString(),
+          value: profileData.programs.scratchpads.length.toLocaleString(),
           inline: true,
         },
         {
           name: 'Votes Received',
-          value: profile.programs.scratchpads.reduce((a, b) => a + b.sumVotesIncremented - 1, 0).toLocaleString(),
+          value: profileData.programs.scratchpads.reduce((a, b) => a + b.sumVotesIncremented - 1, 0).toLocaleString(),
           inline: true,
         },
         {
           name: 'Spin-Offs Received',
-          value: profile.programs.scratchpads.reduce((a, b) => a + Math.abs(b.spinoffCount), 0).toLocaleString(),
+          value: profileData.programs.scratchpads.reduce((a, b) => a + Math.abs(b.spinoffCount), 0).toLocaleString(),
           inline: true,
         },
         {
           name: 'Votes Given',
-          value: profile.widgets.data!.userSummary!.statistics.votes.toLocaleString(),
+          value: profileData.widgets.data!.userSummary!.statistics.votes.toLocaleString(),
           inline: true,
         },
-        {
-          name: ZERO_WIDTH_SPACE_CHAR,
-          value: underscore(bold('Discussion')),
-        },
+        formatFieldHeading('Discussion'),
         {
           name: 'Questions',
-          value: profile.widgets.data!.userSummary!.statistics.questions.toLocaleString(),
+          value: profileData.widgets.data!.userSummary!.statistics.questions.toLocaleString(),
           inline: true,
         },
         {
           name: 'Answers',
-          value: profile.widgets.data!.userSummary!.statistics.answers.toLocaleString(),
+          value: profileData.widgets.data!.userSummary!.statistics.answers.toLocaleString(),
           inline: true,
         },
         {
           name: 'Help Requests',
-          value: profile.widgets.data!.userSummary!.statistics.projectquestions.toLocaleString(),
+          value: profileData.widgets.data!.userSummary!.statistics.projectquestions.toLocaleString(),
           inline: true,
         },
         {
           name: 'Help Replies',
-          value: profile.widgets.data!.userSummary!.statistics.projectanswers.toLocaleString(),
+          value: profileData.widgets.data!.userSummary!.statistics.projectanswers.toLocaleString(),
           inline: true,
         },
         {
           name: 'Tips & Thanks',
-          value: profile.widgets.data!.userSummary!.statistics.comments.toLocaleString(),
+          value: profileData.widgets.data!.userSummary!.statistics.comments.toLocaleString(),
           inline: true,
         },
         {
           name: 'Replies',
-          value: profile.widgets.data!.userSummary!.statistics.replies.toLocaleString(),
+          value: profileData.widgets.data!.userSummary!.statistics.replies.toLocaleString(),
           inline: true,
         }
       )
       .setFooter({
-        text: `${typeof profile.info.data.user!.username === 'string' ? '@' + profile.info.data.user!.username + FOOTER_SEPARATOR : ''}${
-          profile.info.data.user!.kaid
-        }`,
-        iconURL: this.getAvatarURL(profile),
+        text:
+          (typeof profileData.info.data.user!.username === 'string' ? '@' + profileData.info.data.user!.username + FOOTER_SEPARATOR : '') +
+          profileData.info.data.user!.kaid,
+        iconURL: this.avatarURL(profileData),
       })
 
-    if (profile.info.data.user!.joined && profile.info.data.user!.badgeCounts) {
+    if (profileData.info.data.user!.joined && profileData.info.data.user!.badgeCounts) {
       embed.fields.unshift(
-        {
-          name: ZERO_WIDTH_SPACE_CHAR,
-          value: underscore(bold('Account')),
-          inline: false,
-        },
+        formatFieldHeading('Account'),
         {
           name: 'Points',
-          value: profile.info.data.user!.points.toLocaleString(),
+          value: profileData.info.data.user!.points.toLocaleString(),
           inline: true,
         },
         {
           name: 'Joined',
-          value: time(new Date(profile.info.data.user!.joined), 'D'),
+          value: time(new Date(profileData.info.data.user!.joined), 'D'),
           inline: true,
         },
         {
           name: 'Badges',
-          value: Object.values(JSON.parse(profile.info.data.user!.badgeCounts) as Record<string, number>)
+          value: Object.values(JSON.parse(profileData.info.data.user!.badgeCounts) as Record<string, number>)
             .reduce((total, count) => (total as number) + (count as number))
             .toLocaleString(),
           inline: true,
         },
         {
           name: 'Videos Watched',
-          value: profile.info.data.user!.countVideosCompleted.toLocaleString(),
+          value: profileData.info.data.user!.countVideosCompleted.toLocaleString(),
           inline: true,
         }
       )
-    } else
-      embed.fields.unshift({
-        name: italic('Warning'),
-        value: italic('This user has chosen to keep some of their information private.'),
-        inline: false,
-      })
+    } else embed.fields.unshift(formatFieldWarning('This user has chosen to keep some of their information private.'))
 
     return [embed]
   }
 
-  private getComponents(profile: Profile) {
+  private components(profileData: ProfileData) {
     return [
       new MessageActionRow().addComponents(
         new MessageButton() //
-          .setEmoji(pickRandom(['🚹', '🚺', '🚼']))
+          .setEmoji('👥')
           .setLabel('Profile')
           .setStyle('LINK')
-          .setURL(this.getProfileURL(profile))
+          .setURL(this.profileURL(profileData))
       ),
     ]
   }
@@ -187,19 +172,19 @@ export class UserCommand extends Command {
   public async chatInputRun(interaction: Command.ChatInputInteraction) {
     if (!interaction.deferred && !interaction.replied) await interaction.deferReply()
 
-    let profile
+    let profileData
     try {
-      profile = await this.getProfile(interaction)
+      profileData = await this.getProfileData(interaction)
     } catch (err) {
       if (err instanceof ValidationError) return interaction.editReply(err.message)
       else throw err
     }
 
-    return await interaction.editReply({
-      embeds: this.getEmbeds(profile),
-      components: this.getComponents(profile),
+    return interaction.editReply({
+      embeds: this.embeds(profileData),
+      components: this.components(profileData),
     })
   }
 }
 
-type Profile = Awaited<ReturnType<UserCommand['getProfile']>>
+type ProfileData = Awaited<ReturnType<UserCommand['getProfileData']>>
