@@ -5,9 +5,13 @@ import { profile } from 'ka-api'
 import { cookies } from '../../lib/khan-cookies'
 import { profanity } from '@2toad/profanity'
 import { time } from '@discordjs/builders'
-import { FOOTER_SEPARATOR } from '../../lib/constants'
 import { ValidationError } from '../../lib/errors'
-import { formatFieldHeading, formatFieldWarning } from '../../lib/utils'
+import { formatFieldHeading, formatFieldWarning, formatStopwatch } from '../../lib/utils/discord'
+import { avatarURL, displayNameFooter, profileURL } from '../../lib/utils/khan'
+import { EmbedLimits } from '@sapphire/discord-utilities'
+import { truncate } from '../../lib/utils/general'
+import { Stopwatch } from '@sapphire/stopwatch'
+import { BULLET_SEPARATOR } from '../../lib/constants'
 
 @ApplyOptions<Command.Options>({
   description: "Get a Khan Academy user's profile",
@@ -50,21 +54,16 @@ export class UserCommand extends Command {
     return { info: profileInfo, widgets: profileWidgets, avatar: avatarData, programs: userPrograms }
   }
 
-  private profileURL(profileData: ProfileData) {
-    return `https://www.khanacademy.org/profile/${profileData.info.data.user!.username ?? profileData.info.data.user!.kaid}`
-  }
-
-  private avatarURL(profileData: ProfileData) {
-    return `https://cdn.kastatic.org${profileData.avatar.data.user!.avatar.imageSrc.replace('/svg', '').replace('.svg', '.png')}`
-  }
-
   private embeds(profileData: ProfileData) {
+    const user = profileData.info.data.user!,
+      statistics = profileData.widgets.data!.userSummary!.statistics
+
     const embed = new MessageEmbed()
       .setColor('GREEN')
-      .setTitle(profileData.info.data.user!.nickname)
-      .setURL(this.profileURL(profileData))
-      .setThumbnail(this.avatarURL(profileData))
-      .setDescription(profileData.info.data.user!.bio)
+      .setTitle(truncate(user.nickname, EmbedLimits.MaximumTitleLength))
+      .setURL(profileURL(user.username, user.kaid))
+      .setThumbnail(avatarURL(profileData.avatar.data.user!.avatar.imageSrc))
+      .setDescription(truncate(user.bio, EmbedLimits.MaximumDescriptionLength))
       .addFields(
         formatFieldHeading('Programs'),
         {
@@ -84,71 +83,69 @@ export class UserCommand extends Command {
         },
         {
           name: 'Votes Given',
-          value: profileData.widgets.data!.userSummary!.statistics.votes.toLocaleString(),
+          value: statistics.votes.toLocaleString(),
           inline: true,
         },
         formatFieldHeading('Discussion'),
         {
           name: 'Questions',
-          value: profileData.widgets.data!.userSummary!.statistics.questions.toLocaleString(),
+          value: statistics.questions.toLocaleString(),
           inline: true,
         },
         {
           name: 'Answers',
-          value: profileData.widgets.data!.userSummary!.statistics.answers.toLocaleString(),
-          inline: true,
-        },
-        {
-          name: 'Help Requests',
-          value: profileData.widgets.data!.userSummary!.statistics.projectquestions.toLocaleString(),
-          inline: true,
-        },
-        {
-          name: 'Help Replies',
-          value: profileData.widgets.data!.userSummary!.statistics.projectanswers.toLocaleString(),
+          value: statistics.answers.toLocaleString(),
           inline: true,
         },
         {
           name: 'Tips & Thanks',
-          value: profileData.widgets.data!.userSummary!.statistics.comments.toLocaleString(),
+          value: statistics.comments.toLocaleString(),
           inline: true,
         },
         {
           name: 'Replies',
-          value: profileData.widgets.data!.userSummary!.statistics.replies.toLocaleString(),
+          value: statistics.replies.toLocaleString(),
+          inline: true,
+        },
+        {
+          name: 'Help Requests',
+          value: statistics.projectquestions.toLocaleString(),
+          inline: true,
+        },
+        {
+          name: 'Help Replies',
+          value: statistics.projectanswers.toLocaleString(),
           inline: true,
         }
       )
       .setFooter({
-        text:
-          (typeof profileData.info.data.user!.username === 'string' ? '@' + profileData.info.data.user!.username + FOOTER_SEPARATOR : '') +
-          profileData.info.data.user!.kaid,
-        iconURL: this.avatarURL(profileData),
+        text: displayNameFooter(user.username, user.kaid),
+        iconURL: avatarURL(profileData.avatar.data.user!.avatar.imageSrc),
       })
 
-    if (profileData.info.data.user!.joined && profileData.info.data.user!.badgeCounts) {
+    if (user.joined && user.badgeCounts) {
       embed.fields.unshift(
         formatFieldHeading('Account'),
         {
           name: 'Points',
-          value: profileData.info.data.user!.points.toLocaleString(),
+          value: user.points.toLocaleString(),
           inline: true,
         },
         {
           name: 'Joined',
-          value: time(new Date(profileData.info.data.user!.joined), 'D'),
+          value: time(new Date(user.joined), 'D'),
           inline: true,
         },
         {
           name: 'Badges',
-          value: Object.values(JSON.parse(profileData.info.data.user!.badgeCounts) as Record<string, number>)
+          value: Object.values(JSON.parse(user.badgeCounts) as Record<string, number>)
             .reduce((total, count) => (total as number) + (count as number))
             .toLocaleString(),
           inline: true,
         },
         {
           name: 'Videos Watched',
-          value: profileData.info.data.user!.countVideosCompleted.toLocaleString(),
+          value: user.countVideosCompleted.toLocaleString(),
           inline: true,
         }
       )
@@ -164,13 +161,15 @@ export class UserCommand extends Command {
           .setEmoji('👥')
           .setLabel('Profile')
           .setStyle('LINK')
-          .setURL(this.profileURL(profileData))
+          .setURL(profileURL(profileData.info.data.user!.username, profileData.info.data.user!.kaid))
       ),
     ]
   }
 
   public async chatInputRun(interaction: Command.ChatInputInteraction) {
     if (!interaction.deferred && !interaction.replied) await interaction.deferReply()
+
+    const stopwatch = new Stopwatch()
 
     let profileData
     try {
@@ -180,8 +179,13 @@ export class UserCommand extends Command {
       else throw err
     }
 
+    const embeds = this.embeds(profileData)
+    embeds[0].setFooter({
+      text: [embeds[0].footer!.text, formatStopwatch(stopwatch)].join(BULLET_SEPARATOR),
+      iconURL: embeds[0].footer!.iconURL,
+    })
     return interaction.editReply({
-      embeds: this.embeds(profileData),
+      embeds: embeds,
       components: this.components(profileData),
     })
   }

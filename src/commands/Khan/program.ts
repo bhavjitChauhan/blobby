@@ -2,13 +2,17 @@ import { bold, time } from '@discordjs/builders'
 import { ApplyOptions } from '@sapphire/decorators'
 import { EmbedLimits } from '@sapphire/discord-utilities'
 import { Command } from '@sapphire/framework'
+import { Stopwatch } from '@sapphire/stopwatch'
 import { Time } from '@sapphire/time-utilities'
 import { MessageActionRow, MessageButton, MessageEmbed } from 'discord.js'
 import { programs, utils, discussion } from 'ka-api'
-import { FOOTER_SEPARATOR, RUN_ENVIRONMENTS } from '../../lib/constants'
+import config from '../../config'
+import { BULLET_SEPARATOR, RUN_ENVIRONMENTS } from '../../lib/constants'
 import { ValidationError } from '../../lib/errors'
 import { cookies } from '../../lib/khan-cookies'
-import { formatFieldHeading, formatFieldWarning, truncate, within } from '../../lib/utils'
+import { formatFieldHeading, formatFieldWarning, formatStopwatch } from '../../lib/utils/discord'
+import { truncate, within } from '../../lib/utils/general'
+import { avatarURL, displayNameFooter, displayNamePrimary, profileURL, truncateScratchpadHyperlink } from '../../lib/utils/khan'
 
 const { isValidProgramID } = utils
 
@@ -26,30 +30,18 @@ export class UserCommand extends Command {
         builder //
           .setName(this.name)
           .setDescription(this.description)
-          .addIntegerOption((option) =>
+          .addStringOption((option) =>
             option //
               .setName('id')
-              .setDescription('The ID of the program')
+              .setDescription('The ID or URL of the program')
               .setRequired(true)
           ),
       { idHints: ['1014333490877173890'] }
     )
   }
 
-  private profileURL(scratchpadData: ScratchpadData) {
-    return `https://www.khanacademy.org/profile/${
-      scratchpadData.scratchpad.creatorProfile.username !== ''
-        ? scratchpadData.scratchpad.creatorProfile.username
-        : scratchpadData.scratchpad.creatorProfile.kaid
-    }`
-  }
-
-  private avatarURL(scratchpadData: ScratchpadData) {
-    return scratchpadData.scratchpad.creatorProfile.avatarSrc.replace('/svg', '').replace('.svg', '.png')
-  }
-
   private async getScratchpadData(interaction: Command.ChatInputInteraction) {
-    const id = interaction.options.getInteger('id', true)
+    const id = utils.extractProgramID(interaction.options.getString('id', true))
     try {
       isValidProgramID(id)
     } catch (err) {
@@ -62,10 +54,10 @@ export class UserCommand extends Command {
     })
     if (typeof scratchpad === 'string') throw new ValidationError(this.#PROGRAM_NOT_FOUND)
 
-    const questions = await discussion.feedbackQuery(cookies, scratchpad.scratchpad.id, 'QUESTION', 1, 1e2)
+    const questions = await discussion.feedbackQuery(cookies, scratchpad.scratchpad.id, 'QUESTION', 1, config.program.discussionLimit)
     if (typeof questions.data.feedback === null) throw new ValidationError(this.#FEEDBACK_NOT_FOUND)
 
-    const comments = await discussion.feedbackQuery(cookies, scratchpad.scratchpad.id, 'COMMENT', 1, 1e2)
+    const comments = await discussion.feedbackQuery(cookies, scratchpad.scratchpad.id, 'COMMENT', 1, config.program.discussionLimit)
     if (typeof comments.data.feedback === null) throw new ValidationError(this.#FEEDBACK_NOT_FOUND)
 
     return {
@@ -78,7 +70,9 @@ export class UserCommand extends Command {
   private embeds(scratchpadData: ScratchpadData) {
     const scratchpad = scratchpadData.scratchpad.scratchpad,
       questions = scratchpadData.questions.data.feedback!.feedback,
+      questionsComplete = scratchpadData.questions.data.feedback?.isComplete,
       comments = scratchpadData.comments.data.feedback!.feedback,
+      commentsComplete = scratchpadData.comments.data.feedback?.isComplete,
       tags = [],
       created = new Date(scratchpad.created),
       updated = new Date(scratchpad.date)
@@ -93,14 +87,16 @@ export class UserCommand extends Command {
     const embed = new MessageEmbed()
       .setColor('GREEN')
       .setAuthor({
-        name:
-          scratchpadData.scratchpad.creatorProfile.nickname ??
-          (scratchpadData.scratchpad.creatorProfile.username !== '' && '@' + scratchpadData.scratchpad.creatorProfile.username) ??
+        name: displayNamePrimary(
+          scratchpadData.scratchpad.creatorProfile.nickname,
+          scratchpadData.scratchpad.creatorProfile.username,
           scratchpadData.scratchpad.creatorProfile.kaid,
-        url: this.profileURL(scratchpadData),
-        iconURL: this.avatarURL(scratchpadData),
+          EmbedLimits.MaximumAuthorNameLength
+        ),
+        url: profileURL(scratchpadData.scratchpad.creatorProfile.username, scratchpadData.scratchpad.creatorProfile.kaid),
+        iconURL: avatarURL(scratchpadData.scratchpad.creatorProfile.avatarSrc),
       })
-      .setTitle(scratchpad.title ? truncate(scratchpad.title, EmbedLimits.MaximumTitleLength) : 'null')
+      .setTitle(scratchpad.title ? truncate(scratchpad.title, EmbedLimits.MaximumTitleLength) : 'Untitled')
       .setURL(scratchpad.url)
       .setImage(scratchpad.imageUrl)
       .addFields(
@@ -122,10 +118,7 @@ export class UserCommand extends Command {
         },
         {
           name: 'Created',
-          value:
-            !within(created.getTime(), updated.getTime(), Time.Minute) && within(created.getTime(), updated.getTime(), Time.Day)
-              ? time(created)
-              : time(created, 'D'),
+          value: within(created.getTime(), updated.getTime(), Time.Day, Time.Minute) ? time(created) : time(created, 'D'),
           inline: true,
         },
         {
@@ -140,49 +133,38 @@ export class UserCommand extends Command {
         formatFieldHeading('Discussion'),
         {
           name: 'Questions',
-          value: questions.length.toLocaleString() + (!scratchpadData.questions.data.feedback?.isComplete ? '+' : ''),
+          value: questions.length.toLocaleString() + (!questionsComplete ? '+' : ''),
           inline: true,
         },
         {
           name: 'Question Votes',
-          value:
-            questions.reduce((acc, { sumVotesIncremented }) => acc + sumVotesIncremented, 0).toLocaleString() +
-            (!scratchpadData.questions.data.feedback?.isComplete ? '+' : ''),
+          value: questions.reduce((acc, { sumVotesIncremented }) => acc + sumVotesIncremented, 0).toLocaleString() + (!questionsComplete ? '+' : ''),
           inline: true,
         },
         {
           name: 'Question Replies',
-          value:
-            questions.reduce((acc, { replyCount }) => acc + replyCount, 0).toLocaleString() +
-            (!scratchpadData.questions.data.feedback?.isComplete ? '+' : ''),
+          value: questions.reduce((acc, { replyCount }) => acc + replyCount, 0).toLocaleString() + (!questionsComplete ? '+' : ''),
           inline: true,
         },
         {
           name: 'Comments',
-          value: comments.length.toLocaleString() + (!scratchpadData.comments.data.feedback?.isComplete ? '+' : ''),
+          value: comments.length.toLocaleString() + (!commentsComplete ? '+' : ''),
           inline: true,
         },
         {
           name: 'Comment Votes',
-          value:
-            comments.reduce((acc, { sumVotesIncremented }) => acc + sumVotesIncremented, 0).toLocaleString() +
-            (!scratchpadData.comments.data.feedback?.isComplete ? '+' : ''),
+          value: comments.reduce((acc, { sumVotesIncremented }) => acc + sumVotesIncremented, 0).toLocaleString() + (!commentsComplete ? '+' : ''),
           inline: true,
         },
         {
           name: 'Comment Replies',
-          value:
-            comments.reduce((acc, { replyCount }) => acc + replyCount, 0).toLocaleString() +
-            (!scratchpadData.comments.data.feedback?.isComplete ? '+' : ''),
+          value: comments.reduce((acc, { replyCount }) => acc + replyCount, 0).toLocaleString() + (!commentsComplete ? '+' : ''),
           inline: true,
         }
       )
       .setFooter({
-        text:
-          (typeof scratchpadData.scratchpad.creatorProfile.username === 'string' && scratchpadData.scratchpad.creatorProfile.username !== ''
-            ? '@' + scratchpadData.scratchpad.creatorProfile.username + FOOTER_SEPARATOR
-            : '') + scratchpadData.scratchpad.creatorProfile.kaid,
-        iconURL: this.avatarURL(scratchpadData),
+        text: displayNameFooter(scratchpadData.scratchpad.creatorProfile.username, scratchpadData.scratchpad.creatorProfile.kaid),
+        iconURL: avatarURL(scratchpadData.scratchpad.creatorProfile.avatarSrc),
       })
 
     if (tags.length > 0) embed.setDescription(tags.map((tag) => bold(tag)).join(', '))
@@ -192,25 +174,21 @@ export class UserCommand extends Command {
         0,
         {
           name: 'Original',
-          value: `[${truncate(
-            scratchpadData.scratchpad.originScratchpad!.translatedTitle ?? 'null',
-            EmbedLimits.MaximumFieldValueLength -
-              `https://www.khanacademy.org/computer-programming/-/${scratchpadData.scratchpad.originScratchpad!.id}`.length -
-              4
-          )}](${`https://www.khanacademy.org/computer-programming/-/${scratchpadData.scratchpad.originScratchpad!.id}`})`,
+          value: truncateScratchpadHyperlink(
+            scratchpadData.scratchpad.originScratchpad!.translatedTitle ?? 'Untitled',
+            scratchpadData.scratchpad.originScratchpad!.slug,
+            scratchpadData.scratchpad.originScratchpad!.id,
+            EmbedLimits.MaximumFieldValueLength
+          ),
           inline: true,
         }
       )
     }
-    if (!scratchpadData.questions.data.feedback?.isComplete || !scratchpadData.comments.data.feedback?.isComplete)
+    if (!questionsComplete || !commentsComplete)
       embed.fields.unshift(
         formatFieldWarning(
           `This program has too many ${
-            !scratchpadData.questions.data.feedback?.isComplete && !scratchpadData.comments.data.feedback?.isComplete
-              ? 'questions and comments'
-              : !scratchpadData.questions.data.feedback?.isComplete
-              ? 'questions'
-              : 'comments'
+            !questionsComplete && !commentsComplete ? 'questions and comments' : !questionsComplete ? 'questions' : 'comments'
           } to load.`
         )
       )
@@ -234,9 +212,9 @@ export class UserCommand extends Command {
           .setEmoji('👥')
           .setLabel('Profile')
           .setStyle('LINK')
-          .setURL(this.profileURL(scratchpadData)),
+          .setURL(profileURL(scratchpadData.scratchpad.creatorProfile.username, scratchpadData.scratchpad.creatorProfile.kaid)),
         new MessageButton() //
-          .setEmoji('📊')
+          .setEmoji('1015128470935834634')
           .setLabel('Khanalytics')
           .setStyle('LINK')
           .setURL(`https://khanalytics.herokuapp.com/program/${scratchpadData.scratchpad.scratchpad.id}?ref=discord`)
@@ -247,6 +225,8 @@ export class UserCommand extends Command {
   public async chatInputRun(interaction: Command.ChatInputInteraction) {
     if (!interaction.deferred && !interaction.replied) await interaction.deferReply()
 
+    const stopwatch = new Stopwatch()
+
     let scratchpadData
     try {
       scratchpadData = await this.getScratchpadData(interaction)
@@ -255,8 +235,13 @@ export class UserCommand extends Command {
       else throw err
     }
 
+    const embeds = this.embeds(scratchpadData)
+    embeds[0].setFooter({
+      text: [embeds[0].footer!.text, formatStopwatch(stopwatch)].join(BULLET_SEPARATOR),
+      iconURL: embeds[0].footer!.iconURL,
+    })
     return interaction.editReply({
-      embeds: this.embeds(scratchpadData),
+      embeds: embeds,
       components: this.components(scratchpadData),
     })
   }
