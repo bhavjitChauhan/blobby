@@ -2,12 +2,13 @@ import { InteractionHandler, InteractionHandlerTypes, PieceContext } from '@sapp
 import { codeBlock, isNullish } from '@sapphire/utilities'
 import { MessageAttachment, MessageEmbed, ModalSubmitInteraction } from 'discord.js'
 import { RUN_ENVIRONMENTS, RUN_PJS_OPTIONS_KEYS } from '../../lib/constants'
-import { clamp, deserialize } from '../../lib/utils'
 import { launch } from 'puppeteer'
 import type { AceAjaxEditorElement } from '../../types'
 import { EmbedLimits } from '@sapphire/discord-utilities'
 import { Stopwatch } from '@sapphire/stopwatch'
 import { Time } from '@sapphire/time-utilities'
+import { clamp, deserialize, pluralize } from '../../lib/utils/general'
+import { formatStopwatch } from '../../lib/utils/discord'
 
 export class ModalHandler extends InteractionHandler {
   public constructor(ctx: PieceContext, options: InteractionHandler.Options) {
@@ -42,24 +43,23 @@ export class ModalHandler extends InteractionHandler {
     const embed = new MessageEmbed()
       .setColor(success ? 'GREEN' : 'RED')
       .setTitle(`${RUN_ENVIRONMENTS['pjs']} Output`)
-      .setFooter({ text: `${stopwatch.toString()}` })
+      .setFooter({ text: formatStopwatch(stopwatch) })
 
     if (Array.isArray(logs) && logs.length) {
       const tail = logs.slice(-10)
       let description = ''
       do {
-        if (logs.length > 10) description = `Showing last ${tail.length} logs:\n`
+        if (logs.length > 10) description = tail.length > 1 ? `Showing last ${tail.length} logs:\n` : 'Only showing last log:\n'
         description += codeBlock('js', tail.join('\n'))
-        // MaximumFieldValueLength used over MaximumDescriptionLength on purpose
-      } while (description.length > EmbedLimits.MaximumFieldValueLength && tail.shift())
-      if (tail.length == 0) description = 'Logs are too long to be displayed.'
+      } while (description.length > EmbedLimits.MaximumDescriptionLength / 4 && tail.shift())
+      if (tail.length == 0) description = `${pluralize('Log is', logs.length, 'Logs are')} too long to be displayed.`
       embed.setDescription(description)
     }
 
     let attachment = null
     if (success && image instanceof Uint8Array) {
-      attachment = new MessageAttachment(Buffer.from(image as Uint8Array), 'thumbnail.png')
-      embed.setImage('attachment://thumbnail.png')
+      attachment = new MessageAttachment(Buffer.from(image as Uint8Array), 'screenshot.png')
+      embed.setImage('attachment://screenshot.png')
     }
     if (!success) {
       const error = Array.isArray(errors)

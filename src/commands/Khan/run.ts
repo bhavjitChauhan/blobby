@@ -2,9 +2,8 @@ import { Subcommand } from '@sapphire/plugin-subcommands'
 import { ApplyOptions } from '@sapphire/decorators'
 import { Modal, MessageActionRow, type ModalActionRowComponent, TextInputComponent } from 'discord.js'
 import { RUN_PJS_OPTIONS_KEYS, RUN_ENVIRONMENTS, RUN_HTML_OPTIONS_KEYS, RUN_SQL_OPTIONS_KEYS } from '../../lib/constants'
-import { serialize } from '../../lib/utils'
+import { serialize } from '../../lib/utils/general'
 
-// Using ApplyOptions decorator makes it easy to configure
 @ApplyOptions<Subcommand.Options>({
   description: 'Run code in the Khan Academy environment',
   subcommands: [
@@ -62,7 +61,7 @@ export class UserCommand extends Subcommand {
           .addSubcommand((subcommand) =>
             subcommand //
               .setName('html')
-              .setDescription('Runs a HTML in the Khan Academy environment')
+              .setDescription('Runs HTML in the Khan Academy environment')
               .addIntegerOption((option) =>
                 option //
                   .setName('width')

@@ -2,10 +2,11 @@ import { InteractionHandler, InteractionHandlerTypes, PieceContext } from '@sapp
 import { isNullish } from '@sapphire/utilities'
 import { MessageAttachment, MessageEmbed, ModalSubmitInteraction } from 'discord.js'
 import { RUN_ENVIRONMENTS, RUN_SQL_OPTIONS_KEYS } from '../../lib/constants'
-import { clamp, deserialize } from '../../lib/utils'
 import { launch } from 'puppeteer'
 import type { AceAjaxEditorElement } from '../../types'
 import { Stopwatch } from '@sapphire/stopwatch'
+import { deserialize, clamp } from '../../lib/utils/general'
+import { formatStopwatch } from '../../lib/utils/discord'
 
 export class ModalHandler extends InteractionHandler {
   public constructor(ctx: PieceContext, options: InteractionHandler.Options) {
@@ -38,12 +39,12 @@ export class ModalHandler extends InteractionHandler {
     const embed = new MessageEmbed()
       .setColor(success ? 'GREEN' : 'RED')
       .setTitle(`${RUN_ENVIRONMENTS['sql']} Output`)
-      .setFooter({ text: `${stopwatch.toString()}` })
+      .setFooter({ text: formatStopwatch(stopwatch) })
 
     let attachment = null
     if (success && Buffer.isBuffer(image)) {
-      attachment = new MessageAttachment(image, 'thumbnail.png')
-      embed.setImage('attachment://thumbnail.png')
+      attachment = new MessageAttachment(image, 'screenshot.png')
+      embed.setImage('attachment://screenshot.png')
     }
     if (!success) {
       const error = Array.isArray(errors) ? errors[0].text ?? 'Unknown error' : 'Unknown error'
