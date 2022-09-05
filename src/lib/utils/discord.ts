@@ -1,34 +1,14 @@
 import { bold, italic, underscore } from '@discordjs/builders'
+import { EmbedLimits } from '@sapphire/discord-utilities'
 import type { ChatInputCommandSuccessPayload, Command, ContextMenuCommandSuccessPayload, MessageCommandSuccessPayload } from '@sapphire/framework'
 import { container } from '@sapphire/framework'
 import { send } from '@sapphire/plugin-editable-commands'
+import type { Stopwatch } from '@sapphire/stopwatch'
 import { cyan } from 'colorette'
 import type { APIUser } from 'discord-api-types/v9'
 import { EmbedField, Guild, Message, MessageEmbed, User } from 'discord.js'
-import { RandomLoadingMessage, ZERO_WIDTH_SPACE_CHAR } from './constants'
-
-export function clamp(n: number, min: number, max: number) {
-  return Math.max(Math.min(n, max), min)
-}
-
-export function within(a: number, b: number, range: number) {
-  return Math.abs(a - b) <= range
-}
-
-export function truncate(str: string, length: number) {
-  return str.length > length ? `${str.slice(0, length - 3)}...` : str
-}
-
-/**
- * Picks a random item from an array
- * @param array The array to pick a random item from
- * @example
- * const randomEntry = pickRandom([1, 2, 3, 4]) // 1
- */
-export function pickRandom<T>(array: readonly T[]): T {
-  const { length } = array
-  return array[Math.floor(Math.random() * length)]
-}
+import { RandomLoadingMessage, ZERO_WIDTH_SPACE_CHAR } from '../constants'
+import { pickRandom, truncate } from './general'
 
 /**
  * Sends a loading message to the current channel
@@ -57,20 +37,6 @@ export function getSuccessLoggerData(guild: Guild | null, user: User, command: C
   const sentAt = getGuildInfo(guild)
 
   return { shard, commandName, author, sentAt }
-}
-
-export function serialize(obj: Record<string, boolean | number | string | null>, keys: Array<string>) {
-  const arr = []
-  for (const key of keys) if (key in obj) arr.push(obj[key])
-  const str = JSON.stringify(arr)
-  return str.substring(1, str.length - 1)
-}
-
-export function deserialize(str: string, keys: Array<string>) {
-  const arr = JSON.parse(`[${str}]`)
-  const obj: Record<string, boolean | number | string | null> = {}
-  for (const [i, key] of keys.entries()) obj[key] = arr[i]
-  return obj
 }
 
 function getShardInfo(id: number) {
@@ -111,7 +77,7 @@ export function extractCode(content: string) {
 export function formatFieldHeading(heading: string): EmbedField {
   return {
     name: ZERO_WIDTH_SPACE_CHAR,
-    value: underscore(bold(heading)),
+    value: truncate(underscore(bold(heading)), EmbedLimits.MaximumFieldValueLength),
     inline: false,
   }
 }
@@ -119,7 +85,18 @@ export function formatFieldHeading(heading: string): EmbedField {
 export function formatFieldWarning(warning: string): EmbedField {
   return {
     name: italic('Warning'),
-    value: italic(warning),
+    value: truncate(italic(warning), EmbedLimits.MaximumFieldValueLength),
     inline: false,
   }
+}
+
+export function formatStopwatch(stopwatch: Stopwatch) {
+  if (stopwatch.running) stopwatch.stop()
+  let emoji
+  if (stopwatch.duration < 1000) emoji = '⚡'
+  else if (stopwatch.duration < 5000) emoji = '🚀'
+  else if (stopwatch.duration < 15000) emoji = '🐢'
+  else emoji = '🐌'
+
+  return `Took ${stopwatch.toString()} ${emoji}`
 }
