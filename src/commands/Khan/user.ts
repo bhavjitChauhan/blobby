@@ -1,7 +1,7 @@
 import { ApplyOptions } from '@sapphire/decorators'
-import { Command } from '@sapphire/framework'
+import { Subcommand } from '@sapphire/plugin-subcommands'
 import { MessageActionRow, MessageButton, MessageEmbed } from 'discord.js'
-import { profile } from 'ka-api'
+import { profile, utils } from 'ka-api'
 import { cookies } from '../../lib/khan-cookies'
 import { profanity } from '@2toad/profanity'
 import { time } from '@discordjs/builders'
@@ -13,30 +13,56 @@ import { truncate } from '../../lib/utils/general'
 import { Stopwatch } from '@sapphire/stopwatch'
 import { BULLET_SEPARATOR } from '../../lib/constants'
 
-@ApplyOptions<Command.Options>({
-  description: "Get a Khan Academy user's profile",
+@ApplyOptions<Subcommand.Options>({
+  description: 'Get info about a Khan Academy user',
+  subcommands: [
+    {
+      name: 'get',
+      chatInputRun: 'chatInputGet',
+    },
+    {
+      name: 'avatar',
+      chatInputRun: 'chatInputAvatar',
+    },
+  ],
 })
-export class UserCommand extends Command {
+export class UserCommand extends Subcommand {
   readonly #INAPPROPRIATE_USER = "I can't search for that user"
   readonly #PROFILE_NOT_FOUND = "I couldn't find that user"
 
-  public override registerApplicationCommands(registry: Command.Registry) {
+  public override registerApplicationCommands(registry: Subcommand.Registry) {
     registry.registerChatInputCommand(
       (builder) =>
         builder //
           .setName(this.name)
           .setDescription(this.description)
-          .addStringOption((option) =>
-            option //
-              .setName('user')
-              .setDescription('The username or kaid of the user')
-              .setRequired(true)
+          .addSubcommand((subcommand) =>
+            subcommand //
+              .setName('get')
+              .setDescription('Get profile info about a Khan Academy user')
+              .addStringOption((option) =>
+                option //
+                  .setName('user')
+                  .setDescription('The username or kaid of the user')
+                  .setRequired(true)
+              )
+          )
+          .addSubcommand((subcommand) =>
+            subcommand //
+              .setName('avatar')
+              .setDescription("Get a Khan Academy user's avatar")
+              .addStringOption((option) =>
+                option //
+                  .setName('user')
+                  .setDescription('The username or kaid of the user')
+                  .setRequired(true)
+              )
           ),
       { idHints: ['1013219228171644948'] }
     )
   }
 
-  private async getProfileData(interaction: Command.ChatInputInteraction) {
+  private async getProfileData(interaction: Subcommand.ChatInputInteraction) {
     const user = interaction.options.getString('user', true) as string
     if (profanity.exists(user)) throw new ValidationError(this.#INAPPROPRIATE_USER)
 
@@ -52,6 +78,24 @@ export class UserCommand extends Command {
     const userPrograms = await profile.getUserPrograms(profileInfo.data.user.kaid)
 
     return { info: profileInfo, widgets: profileWidgets, avatar: avatarData, programs: userPrograms }
+  }
+
+  private async getAvatarURL(interaction: Subcommand.ChatInputInteraction) {
+    let user = interaction.options.getString('user', true) as string
+    if (profanity.exists(user)) throw new ValidationError(this.#INAPPROPRIATE_USER)
+
+    try {
+      utils.isValidKaid(user)
+    } catch {
+      const profileInfo = await profile.getProfileInfo(cookies, user)
+      if (profileInfo.data.user === null) throw new ValidationError(this.#PROFILE_NOT_FOUND)
+      user = profileInfo.data.user.kaid
+    }
+
+    const avatarData = await profile.avatarDataForProfile(cookies, user)
+    if (avatarData.data.user === null) throw new ValidationError(this.#PROFILE_NOT_FOUND)
+
+    return avatarURL(avatarData.data.user.avatar.imageSrc)
   }
 
   private embeds(profileData: ProfileData) {
@@ -166,7 +210,7 @@ export class UserCommand extends Command {
     ]
   }
 
-  public async chatInputRun(interaction: Command.ChatInputInteraction) {
+  public async chatInputGet(interaction: Subcommand.ChatInputInteraction) {
     if (!interaction.deferred && !interaction.replied) await interaction.deferReply()
 
     const stopwatch = new Stopwatch()
@@ -175,8 +219,10 @@ export class UserCommand extends Command {
     try {
       profileData = await this.getProfileData(interaction)
     } catch (err) {
-      if (err instanceof ValidationError) return interaction.editReply(err.message)
-      else throw err
+      if (err instanceof ValidationError) {
+        await interaction.editReply(err.message)
+        return
+      } else throw err
     }
 
     const embeds = this.embeds(profileData)
@@ -184,10 +230,26 @@ export class UserCommand extends Command {
       text: [embeds[0].footer!.text, formatStopwatch(stopwatch)].join(BULLET_SEPARATOR),
       iconURL: embeds[0].footer!.iconURL,
     })
-    return interaction.editReply({
+    await interaction.editReply({
       embeds: embeds,
       components: this.components(profileData),
     })
+  }
+
+  public async chatInputAvatar(interaction: Subcommand.ChatInputInteraction) {
+    if (!interaction.deferred && !interaction.replied) await interaction.deferReply()
+
+    let avatarURL
+    try {
+      avatarURL = await this.getAvatarURL(interaction)
+    } catch (err) {
+      if (err instanceof ValidationError) {
+        await interaction.editReply(err.message)
+        return
+      } else throw err
+    }
+
+    await interaction.editReply({ content: avatarURL })
   }
 }
 

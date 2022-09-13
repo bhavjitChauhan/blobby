@@ -9,6 +9,8 @@ export const BULLET_CHAR = '\u2022'
 
 export const BULLET_SEPARATOR = `  ${BULLET_CHAR}  `
 
+export const khanalyticsRecordingStart = 1629266402000
+
 export const RandomLoadingMessage = ['Computing...', 'Thinking...', 'Cooking some food', 'Give me a moment', 'Loading...']
 
 export const RUN_ENVIRONMENTS: Record<string, string> = {

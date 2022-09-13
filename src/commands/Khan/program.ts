@@ -1,13 +1,13 @@
 import { bold, time } from '@discordjs/builders'
 import { ApplyOptions } from '@sapphire/decorators'
 import { EmbedLimits } from '@sapphire/discord-utilities'
-import { Command } from '@sapphire/framework'
+import { Subcommand } from '@sapphire/plugin-subcommands'
 import { Stopwatch } from '@sapphire/stopwatch'
 import { Time } from '@sapphire/time-utilities'
 import { MessageActionRow, MessageButton, MessageEmbed } from 'discord.js'
 import { programs, utils, discussion } from 'ka-api'
 import config from '../../config'
-import { BULLET_SEPARATOR, RUN_ENVIRONMENTS } from '../../lib/constants'
+import { BULLET_SEPARATOR, khanalyticsRecordingStart, RUN_ENVIRONMENTS } from '../../lib/constants'
 import { ValidationError } from '../../lib/errors'
 import { cookies } from '../../lib/khan-cookies'
 import { formatFieldHeading, formatFieldWarning, formatStopwatch } from '../../lib/utils/discord'
@@ -16,38 +16,95 @@ import { avatarURL, displayNameFooter, displayNamePrimary, profileURL, truncateS
 
 const { isValidProgramID } = utils
 
-@ApplyOptions<Command.Options>({
-  description: "Get a Khan Academy program's info",
+@ApplyOptions<Subcommand.Options>({
+  description: 'Get info about a Khan Academy program',
+  subcommands: [
+    {
+      name: 'get',
+      chatInputRun: 'chatInputGet',
+    },
+    {
+      name: 'code',
+      chatInputRun: 'chatInputCode',
+    },
+    {
+      name: 'thumbnail',
+      chatInputRun: 'chatInputThumbnail',
+    },
+  ],
 })
-export class UserCommand extends Command {
+export class UserCommand extends Subcommand {
   readonly #INVALID_ID = "That doesn't look like a valid program ID"
   readonly #PROGRAM_NOT_FOUND = "I couldn't find that program"
   readonly #FEEDBACK_NOT_FOUND = "I couldn't find any feedback for that program"
 
-  public override registerApplicationCommands(registry: Command.Registry) {
+  public override registerApplicationCommands(registry: Subcommand.Registry) {
     registry.registerChatInputCommand(
       (builder) =>
         builder //
           .setName(this.name)
           .setDescription(this.description)
-          .addStringOption((option) =>
-            option //
-              .setName('id')
-              .setDescription('The ID or URL of the program')
-              .setRequired(true)
+          .addSubcommand((subcommand) =>
+            subcommand //
+              .setName('get')
+              .setDescription('Get general information about a program')
+              .addStringOption((option) =>
+                option //
+                  .setName('program')
+                  .setDescription('The ID or URL of the program')
+                  .setRequired(true)
+              )
+          )
+          .addSubcommand((subcommand) =>
+            subcommand //
+              .setName('code')
+              .setDescription('Get the code of a program')
+              .addStringOption((option) =>
+                option //
+                  .setName('program')
+                  .setDescription('The ID or URL of the program')
+                  .setRequired(true)
+              )
+          )
+          .addSubcommand((subcommand) =>
+            subcommand //
+              .setName('thumbnail')
+              .setDescription('Get the thumbnail of a program')
+              .addStringOption((option) =>
+                option //
+                  .setName('program')
+                  .setDescription('The ID or URL of the program')
+                  .setRequired(true)
+              )
           ),
       { idHints: ['1014333490877173890'] }
     )
   }
 
-  private async getScratchpadData(interaction: Command.ChatInputInteraction) {
-    const id = utils.extractProgramID(interaction.options.getString('id', true))
+  private validateID(interaction: Subcommand.ChatInputInteraction) {
+    const id = utils.extractProgramID(interaction.options.getString('program', true))
     try {
       isValidProgramID(id)
     } catch (err) {
       throw new ValidationError(this.#INVALID_ID)
     }
 
+    return id
+  }
+
+  private async ensureResponse<T>(interaction: Subcommand.ChatInputInteraction, method: (id: string) => Promise<T>): Promise<T | null> {
+    try {
+      const id = this.validateID(interaction)
+      return await method.call(this, id)
+    } catch (err) {
+      if (err instanceof ValidationError) {
+        await interaction.editReply(err.message)
+        return null
+      } else throw err
+    }
+  }
+
+  private async getScratchpadData(id: string) {
     const scratchpad = await programs.showScratchpad(id).catch((reason) => {
       if (reason.response?.status === 404) throw new ValidationError(this.#PROGRAM_NOT_FOUND)
       else throw reason
@@ -67,7 +124,25 @@ export class UserCommand extends Command {
     }
   }
 
-  private embeds(scratchpadData: ScratchpadData) {
+  private async getScratchpadCode(id: string) {
+    const data = await programs.getProgramJSON(id, { revision: { code: 1 } }).catch((reason) => {
+      if (reason.response?.status === 404) throw new ValidationError(this.#PROGRAM_NOT_FOUND)
+      else throw reason
+    })
+
+    return data.revision.code
+  }
+
+  private async getScratchpadThumbnailURL(id: string) {
+    const data = await programs.getProgramJSON(id, { imageUrl: 1 }).catch((reason) => {
+      if (reason.response?.status === 404) throw new ValidationError(this.#PROGRAM_NOT_FOUND)
+      else throw reason
+    })
+
+    return data.imageUrl
+  }
+
+  private embedsGet(scratchpadData: ScratchpadData) {
     const scratchpad = scratchpadData.scratchpad.scratchpad,
       questions = scratchpadData.questions.data.feedback!.feedback,
       questionsComplete = scratchpadData.questions.data.feedback?.isComplete,
@@ -196,54 +271,69 @@ export class UserCommand extends Command {
     return [embed]
   }
 
-  private components(scratchpadData: ScratchpadData) {
-    return [
-      new MessageActionRow().addComponents(
+  private componentsGet(scratchpadData: ScratchpadData) {
+    const components = [
+      new MessageButton() //
+        .setEmoji('🖥')
+        .setLabel('Program')
+        .setStyle('LINK')
+        .setURL(
+          scratchpadData.scratchpad.scratchpad.url.length <= 512
+            ? scratchpadData.scratchpad.scratchpad.url
+            : `https://www.khanacademy.org/computer-programming/-/${scratchpadData.scratchpad.scratchpad.id}`
+        ),
+      new MessageButton() //
+        .setEmoji('👥')
+        .setLabel('Profile')
+        .setStyle('LINK')
+        .setURL(profileURL(scratchpadData.scratchpad.creatorProfile.username, scratchpadData.scratchpad.creatorProfile.kaid)),
+    ]
+    if (new Date(scratchpadData.scratchpad.scratchpad.created).getTime() > khanalyticsRecordingStart)
+      components.push(
         new MessageButton() //
-          .setEmoji('🖥')
-          .setLabel('Program')
-          .setStyle('LINK')
-          .setURL(
-            scratchpadData.scratchpad.scratchpad.url.length <= 512
-              ? scratchpadData.scratchpad.scratchpad.url
-              : `https://www.khanacademy.org/computer-programming/-/${scratchpadData.scratchpad.scratchpad.id}`
-          ),
-        new MessageButton() //
-          .setEmoji('👥')
-          .setLabel('Profile')
-          .setStyle('LINK')
-          .setURL(profileURL(scratchpadData.scratchpad.creatorProfile.username, scratchpadData.scratchpad.creatorProfile.kaid)),
-        new MessageButton() //
-          .setEmoji('1015128470935834634')
+          .setEmoji('📊')
           .setLabel('Khanalytics')
           .setStyle('LINK')
           .setURL(`https://khanalytics.herokuapp.com/program/${scratchpadData.scratchpad.scratchpad.id}?ref=discord`)
-      ),
-    ]
+      )
+    return [new MessageActionRow().addComponents(components)]
   }
 
-  public async chatInputRun(interaction: Command.ChatInputInteraction) {
+  public async chatInputGet(interaction: Subcommand.ChatInputInteraction) {
     if (!interaction.deferred && !interaction.replied) await interaction.deferReply()
 
     const stopwatch = new Stopwatch()
 
-    let scratchpadData
-    try {
-      scratchpadData = await this.getScratchpadData(interaction)
-    } catch (err) {
-      if (err instanceof ValidationError) return interaction.editReply(err.message)
-      else throw err
-    }
+    const data = await this.ensureResponse(interaction, this.getScratchpadData)
+    if (data === null) return
 
-    const embeds = this.embeds(scratchpadData)
+    const embeds = this.embedsGet(data)
     embeds[0].setFooter({
       text: [embeds[0].footer!.text, formatStopwatch(stopwatch)].join(BULLET_SEPARATOR),
       iconURL: embeds[0].footer!.iconURL,
     })
-    return interaction.editReply({
+    await interaction.editReply({
       embeds: embeds,
-      components: this.components(scratchpadData),
+      components: this.componentsGet(data),
     })
+  }
+
+  public async chatInputCode(interaction: Subcommand.ChatInputInteraction) {
+    if (!interaction.deferred && !interaction.replied) await interaction.deferReply()
+
+    const code = await this.ensureResponse(interaction, this.getScratchpadCode)
+    if (code === null) return
+
+    await interaction.editReply({ files: [{ attachment: Buffer.from(code), name: 'code.js' }] })
+  }
+
+  public async chatInputThumbnail(interaction: Subcommand.ChatInputInteraction) {
+    if (!interaction.deferred && !interaction.replied) await interaction.deferReply()
+
+    const thumbnailURL = await this.ensureResponse(interaction, this.getScratchpadThumbnailURL)
+    if (thumbnailURL === null) return
+
+    await interaction.editReply({ files: [{ attachment: thumbnailURL, name: 'thumbnail.png' }] })
   }
 }
 
