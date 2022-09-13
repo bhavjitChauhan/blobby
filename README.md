@@ -1,19 +1,5 @@
 # Blobby
 
-A simple Discord bot built with the [Sapphire framework][sapphire].
+[![](https://img.shields.io/badge/discord-invite-%234752c4)](https://discord.com/api/oauth2/authorize?client_id=821543764946190367&permissions=0&scope=bot%20applications.commands)
 
-## How to use it?
-
-### Prerequisite
-
-```sh
-npm install
-```
-
-### Development
-
-This example can be run with `tsc-watch` to watch the files and automatically restart your bot.
-
-```sh
-npm run watch:start
-```
+A friendly bot that does all sorts of things related to Khan Academy.
