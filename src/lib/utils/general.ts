@@ -51,6 +51,25 @@ export function pickRandom<T>(array: readonly T[]): T {
 }
 
 /**
+ * Unescape an escaped HTML string.
+ *
+ * @link https://github.com/bhavjitChauhan/Essentials/blob/4b784f6c1a1b9f082440f5597647872296504f5f/src/external/unescapeHTML.js#L17
+ */
+export function unescapeHTML(str: string) {
+  return str.replace(
+    /&amp;|&lt;|&gt;|&#39;|&quot;/g,
+    (tag) =>
+      ({
+        '&amp;': '&',
+        '&lt;': '<',
+        '&gt;': '>',
+        '&#39;': "'",
+        '&quot;': '"',
+      }[tag] || tag)
+  )
+}
+
+/**
  * Parses a nested key delimited by periods
  *
  * @example

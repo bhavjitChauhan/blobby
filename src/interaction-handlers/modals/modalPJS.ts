@@ -7,7 +7,7 @@ import type { AceAjaxEditorElement } from '../../types'
 import { EmbedLimits } from '@sapphire/discord-utilities'
 import { Stopwatch } from '@sapphire/stopwatch'
 import { Time } from '@sapphire/time-utilities'
-import { clamp, deserialize, pluralize } from '../../lib/utils/general'
+import { clamp, deserialize, pluralize, unescapeHTML } from '../../lib/utils/general'
 import { formatStopwatch } from '../../lib/utils/discord'
 
 export class ModalHandler extends InteractionHandler {
@@ -65,7 +65,7 @@ export class ModalHandler extends InteractionHandler {
       const error = Array.isArray(errors)
         ? (errors[0].infiniteLoopNodeType && 'Your javascript is taking too long to run.') ?? errors[0].text ?? 'Unknown error'
         : 'Unknown error'
-      embed.addFields({ name: 'Error', value: error })
+      embed.addFields({ name: 'Error', value: unescapeHTML(error) })
     }
 
     return interaction.editReply({ embeds: [embed], files: attachment ? [attachment] : [] })

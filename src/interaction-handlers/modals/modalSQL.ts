@@ -5,7 +5,7 @@ import { RUN_ENVIRONMENTS, RUN_SQL_OPTIONS_KEYS } from '../../lib/constants'
 import { launch } from 'puppeteer'
 import type { AceAjaxEditorElement } from '../../types'
 import { Stopwatch } from '@sapphire/stopwatch'
-import { deserialize, clamp } from '../../lib/utils/general'
+import { deserialize, clamp, unescapeHTML } from '../../lib/utils/general'
 import { formatStopwatch } from '../../lib/utils/discord'
 
 export class ModalHandler extends InteractionHandler {
@@ -48,7 +48,7 @@ export class ModalHandler extends InteractionHandler {
     }
     if (!success) {
       const error = Array.isArray(errors) ? errors[0].text ?? 'Unknown error' : 'Unknown error'
-      embed.addFields({ name: 'Error', value: error })
+      embed.addFields({ name: 'Error', value: unescapeHTML(error) })
     }
 
     return interaction.editReply({ embeds: [embed], files: attachment ? [attachment] : [] })
