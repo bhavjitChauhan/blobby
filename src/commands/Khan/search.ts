@@ -125,7 +125,7 @@ export class UserCommand extends Subcommand {
                   )
               )
           ),
-      { idHints: ['1015062111354892429'] }
+      { idHints: ['1015062111354892429', '1020204330307047474'] }
     )
   }
 

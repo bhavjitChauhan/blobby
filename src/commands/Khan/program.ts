@@ -77,7 +77,7 @@ export class UserCommand extends Subcommand {
                   .setRequired(true)
               )
           ),
-      { idHints: ['1014333490877173890'] }
+      { idHints: ['1014333490877173890', '1020204328277000212'] }
     )
   }
 

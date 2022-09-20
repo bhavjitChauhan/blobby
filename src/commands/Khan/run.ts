@@ -93,7 +93,7 @@ export class UserCommand extends Subcommand {
                   .setDescription('Height of the output')
               )
           ),
-      { idHints: ['1013180516712857651'] }
+      { idHints: ['1013180516712857651', '1020204329111658577'] }
     )
   }
   public async chatInputPJS(interaction: Subcommand.ChatInputInteraction) {

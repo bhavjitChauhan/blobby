@@ -15,7 +15,7 @@ export class UserCommand extends Command {
         name: this.name,
         description: this.description,
       },
-      { idHints: ['1012935998713368627'] }
+      { idHints: ['1012935998713368627', '1020204327178088559'] }
     )
   }
 
