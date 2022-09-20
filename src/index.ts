@@ -3,9 +3,6 @@ import { LogLevel, SapphireClient } from '@sapphire/framework'
 import { login } from './lib/khan-cookies'
 
 const client = new SapphireClient({
-  defaultPrefix: '!',
-  regexPrefix: /^(hey +)?bot[,! ]/i,
-  caseInsensitiveCommands: true,
   logger: {
     level: LogLevel.Debug,
   },
