@@ -25,7 +25,7 @@
     "discord.js": "13",
     "dotenv-cra": "^3.0.2",
     "ka-api": "github:bhavjitChauhan/ka-api",
-    "mongodb": "4.9",
+    "mongodb": "4.10",
     "puppeteer": "16",
     "reflect-metadata": "^0.1.13"
   },
