@@ -31,6 +31,8 @@ export async function find(enumerator: Collections, query: Parameters<Collection
         ...options,
       })
       .toArray()
+  } catch (err) {
+    results = null
   } finally {
     await client.close()
   }
@@ -54,6 +56,8 @@ export async function aggregate(
         ...options,
       })
       .toArray()
+  } catch (err) {
+    results = null
   } finally {
     await client.close()
   }

@@ -29,8 +29,9 @@ import { profanity } from '@2toad/profanity'
 })
 export class UserCommand extends Subcommand {
   readonly #INAPPROPRIATE_QUERY = "I can't search for that"
+  readonly #QUERY_TIMEOUT = 'The search took too long'
   readonly #CODE_NOT_FOUND = "I couldn't find any programs with that code"
-  readonly #USER_NOT_FOUND = "I couldn't find any users"
+  readonly #USER_NOT_FOUND = "I couldn't find any users with that name"
 
   public override registerApplicationCommands(registry: Subcommand.Registry) {
     registry.registerChatInputCommand(
@@ -256,9 +257,10 @@ export class UserCommand extends Subcommand {
 
     const query = interaction.options.getString('query', true),
       sort = (interaction.options.getString('sort') ?? 'votes') as CodeSortOptions
-    if (profanity.exists(query)) return interaction.editReply({ content: this.#INAPPROPRIATE_QUERY })
+    if (profanity.exists(query)) return interaction.editReply(this.#INAPPROPRIATE_QUERY)
 
-    const scratchpads = (await aggregate(Collections.Scratchpads, this.pipelineCode(query, sort))) as ScratchpadDocument[]
+    const scratchpads = (await aggregate(Collections.Scratchpads, this.pipelineCode(query, sort))) as ScratchpadDocument[] | null
+    if (scratchpads === null) return interaction.editReply(this.#QUERY_TIMEOUT)
     if (scratchpads.length === 0) return interaction.editReply(this.#CODE_NOT_FOUND)
     this.rankScratchpads(scratchpads, sort)
 
@@ -475,10 +477,11 @@ export class UserCommand extends Subcommand {
 
     const query = interaction.options.getString('query', true),
       sort = (interaction.options.getString('sort') ?? 'votes') as UserSortOptions
-    if (profanity.exists(query)) return interaction.editReply({ content: this.#INAPPROPRIATE_QUERY })
+    if (profanity.exists(query)) return interaction.editReply(this.#INAPPROPRIATE_QUERY)
 
-    const authors = (await aggregate(Collections.Authors, this.pipelineUser(query, sort))) as AuthorDocument[]
-    if (authors.length === 0) return interaction.reply({ content: this.#USER_NOT_FOUND })
+    const authors = (await aggregate(Collections.Authors, this.pipelineUser(query, sort))) as AuthorDocument[] | null
+    if (authors === null) return interaction.editReply(this.#QUERY_TIMEOUT)
+    if (authors.length === 0) return interaction.editReply(this.#USER_NOT_FOUND)
     this.rankAuthors(authors, sort)
 
     const paginatedMessage = this.paginatedMessageUser(query, authors, sort, stopwatch)
