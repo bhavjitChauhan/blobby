@@ -24,9 +24,9 @@ export class ModalHandler extends InteractionHandler {
     const code = interaction.fields.getTextInputValue('input')
     const options = deserialize(interaction.customId.replace('pjs', ''), RUN_PJS_OPTIONS_KEYS)
 
-    options.width = clamp(parseInt(typeof options.width === 'string' ? options.width : '400'), 1, 5e3)
-    options.height = clamp(parseInt(typeof options.height === 'string' ? options.height : '400'), 1, 5e3)
-    options.delay = clamp(parseFloat(typeof options.delay === 'string' ? options.delay : '0'), 0, Time.Minute)
+    options.width = clamp(typeof options.width === 'number' ? options.width : 400, 1, 5e3)
+    options.height = clamp(typeof options.height === 'number' ? options.height : 400, 1, 5e3)
+    options.delay = clamp(typeof options.delay === 'number' ? options.delay : 0, 0, Time.Minute)
     options.canvas = options.canvas ?? true
     options.loopProtector = options.loopProtector ?? true
 
