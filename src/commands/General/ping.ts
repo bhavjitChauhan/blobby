@@ -3,7 +3,7 @@ import { Command } from '@sapphire/framework'
 import { Message, MessageEmbed } from 'discord.js'
 import { utils } from 'ka-api'
 import { cookies } from '../../lib/khan-cookies'
-import { latencyStats } from '../../lib/mongodb/mongodb'
+import { getLatency } from '../../lib/mongodb/mongodb'
 
 @ApplyOptions<Command.Options>({
   description: "Get the bot's latency",
@@ -25,10 +25,11 @@ export class UserCommand extends Command {
 
     const createdTime = message instanceof Message ? message.createdTimestamp : Date.parse(message.timestamp)
     const khanLatency = await utils.getLatency(cookies)
-    const mongoLatencyStats = await latencyStats().catch((err) => {
-      this.container.logger.error(err)
-      return null
-    })
+    const mongoLatency = await getLatency()
+    // const mongoLatencyStats = await latencyStats().catch((err) => {
+    //   this.container.logger.error(err)
+    //   return null
+    // })
 
     const embed = new MessageEmbed() //
       .setColor(khanLatency ? 'GREEN' : 'RED')
@@ -48,7 +49,7 @@ export class UserCommand extends Command {
         },
         {
           name: 'MongoDB',
-          value: mongoLatencyStats ? `${Math.round(mongoLatencyStats.reads.latency / mongoLatencyStats.reads.ops).toLocaleString()}ms` : '❓',
+          value: mongoLatency ? `${Math.round(mongoLatency).toLocaleString()}ms` : '❓',
         }
       )
 

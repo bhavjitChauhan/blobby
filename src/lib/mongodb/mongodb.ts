@@ -1,4 +1,5 @@
-import { Collection, MongoClient, WithId } from 'mongodb'
+import { Collection, Db, MongoClient, WithId } from 'mongodb'
+import { performance } from 'perf_hooks'
 import config from '../../config'
 import type { AuthorDocument, CollectionStatistics, ScratchpadDocument } from './types'
 
@@ -62,6 +63,27 @@ export async function aggregate(
     await client.close()
   }
   return results
+}
+
+export async function command(command: Parameters<Db['command']>[0], options: Parameters<Db['command']>[1] = {}) {
+  let results = null
+  try {
+    const connection = await client.connect()
+    const db = connection.db(process.env.MONGODB_DB)
+    results = await db.command(command, options)
+  } catch (err) {
+    results = null
+  } finally {
+    await client.close()
+  }
+  return results
+}
+
+export async function getLatency() {
+  const start = performance.now()
+  const results = await command({ ping: 1 })
+  if (results === null) return null
+  return performance.now() - start
 }
 
 export async function latencyStats() {
