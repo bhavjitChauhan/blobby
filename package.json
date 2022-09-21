@@ -22,7 +22,7 @@
     "@sapphire/type": "^2.2.4",
     "@sapphire/utilities": "^3.9.3",
     "colorette": "^2.0.19",
-    "discord-api-types": "0.37",
+    "discord-api-types": "0.33",
     "discord.js": "13",
     "dotenv-cra": "^3.0.2",
     "ka-api": "github:bhavjitChauhan/ka-api",
