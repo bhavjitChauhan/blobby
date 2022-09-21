@@ -70,13 +70,14 @@ export class UserCommand extends Subcommand {
     const profileInfo = await profile.getProfileInfo(cookies, user)
     if (profileInfo.data.user === null) throw new ValidationError(this.#PROFILE_NOT_FOUND)
 
-    const profileWidgets = await profile.getProfileWidgets(cookies, profileInfo.data.user.kaid)
-    if (!profileWidgets.data || profileWidgets.data.userSummary === null) throw new ValidationError(this.#PROFILE_NOT_FOUND)
+    const [profileWidgets, avatarData, userPrograms] = await Promise.all([
+      profile.getProfileWidgets(cookies, profileInfo.data.user.kaid),
+      profile.avatarDataForProfile(cookies, profileInfo.data.user.kaid),
+      profile.getUserPrograms(profileInfo.data.user.kaid),
+    ])
 
-    const avatarData = await profile.avatarDataForProfile(cookies, profileInfo.data.user.kaid)
-    if (avatarData.data.user === null) throw new ValidationError(this.#PROFILE_NOT_FOUND)
-
-    const userPrograms = await profile.getUserPrograms(profileInfo.data.user.kaid)
+    if (!profileWidgets.data || profileWidgets.data.userSummary === null || avatarData.data.user === null)
+      throw new ValidationError(this.#PROFILE_NOT_FOUND)
 
     return { info: profileInfo, widgets: profileWidgets, avatar: avatarData, programs: userPrograms }
   }

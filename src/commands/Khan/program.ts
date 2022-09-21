@@ -106,17 +106,17 @@ export class UserCommand extends Subcommand {
   }
 
   private async getScratchpadData(id: string) {
-    const scratchpad = await programs.showScratchpad(id).catch((reason) => {
+    const [scratchpad, questions, comments] = await Promise.all([
+      programs.showScratchpad(id),
+      discussion.feedbackQuery(cookies, id, 'QUESTION', 1, config.program.discussionLimit),
+      discussion.feedbackQuery(cookies, id, 'COMMENT', 1, config.program.discussionLimit),
+    ]).catch((reason) => {
       if (reason.response?.status === 404) throw new ValidationError(this.#PROGRAM_NOT_FOUND)
       else throw reason
     })
+
     if (typeof scratchpad === 'string') throw new ValidationError(this.#PROGRAM_NOT_FOUND)
-
-    const questions = await discussion.feedbackQuery(cookies, scratchpad.scratchpad.id, 'QUESTION', 1, config.program.discussionLimit)
-    if (typeof questions.data.feedback === null) throw new ValidationError(this.#FEEDBACK_NOT_FOUND)
-
-    const comments = await discussion.feedbackQuery(cookies, scratchpad.scratchpad.id, 'COMMENT', 1, config.program.discussionLimit)
-    if (typeof comments.data.feedback === null) throw new ValidationError(this.#FEEDBACK_NOT_FOUND)
+    if (typeof questions.data.feedback === null || typeof comments.data.feedback === null) throw new ValidationError(this.#FEEDBACK_NOT_FOUND)
 
     return {
       scratchpad,
