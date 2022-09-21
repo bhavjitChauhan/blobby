@@ -3,7 +3,7 @@ import { Time } from '@sapphire/time-utilities'
 export default {
   rateLimit: Time.Second,
   mongodb: {
-    timeout: Time.Second * 15,
+    timeout: Time.Minute,
     limit: 100,
   },
   program: {
