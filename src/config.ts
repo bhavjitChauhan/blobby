@@ -1,9 +1,9 @@
 import { Time } from '@sapphire/time-utilities'
 
 export default {
-  rateLimit: 1000,
+  rateLimit: Time.Second,
   mongodb: {
-    timeout: Time.Minute,
+    timeout: Time.Second * 5,
     limit: 100,
   },
   program: {

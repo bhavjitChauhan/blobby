@@ -250,7 +250,7 @@ export class UserCommand extends Subcommand {
       } else throw err
     }
 
-    await interaction.editReply({ content: avatarURL })
+    await interaction.editReply(avatarURL)
   }
 }
 

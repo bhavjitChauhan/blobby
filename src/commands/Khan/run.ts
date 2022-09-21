@@ -97,6 +97,7 @@ export class UserCommand extends Subcommand {
       { idHints: ['1013180516712857651', '1020204329111658577'] }
     )
   }
+
   public async chatInputPJS(interaction: Subcommand.ChatInputInteraction) {
     const options = {
       width: interaction.options.getInteger('width'),
