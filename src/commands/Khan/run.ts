@@ -6,6 +6,7 @@ import { serialize } from '../../lib/utils/general'
 
 @ApplyOptions<Subcommand.Options>({
   description: 'Run code in the Khan Academy environment',
+  preconditions: ['UserRateLimit'],
   subcommands: [
     {
       name: 'pjs',

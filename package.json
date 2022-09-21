@@ -16,6 +16,7 @@
     "@sapphire/plugin-editable-commands": "^2.0.1",
     "@sapphire/plugin-logger": "^3.0.0",
     "@sapphire/plugin-subcommands": "^3.2.1",
+    "@sapphire/ratelimits": "^2.4.5",
     "@sapphire/stopwatch": "^1.4.1",
     "@sapphire/time-utilities": "^1.7.6",
     "@sapphire/type": "^2.2.4",

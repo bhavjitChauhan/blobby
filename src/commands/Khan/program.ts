@@ -18,6 +18,7 @@ const { isValidProgramID } = utils
 
 @ApplyOptions<Subcommand.Options>({
   description: 'Get info about a Khan Academy program',
+  preconditions: ['UserRateLimit'],
   subcommands: [
     {
       name: 'get',

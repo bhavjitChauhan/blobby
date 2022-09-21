@@ -15,6 +15,7 @@ import { profanity } from '@2toad/profanity'
 
 @ApplyOptions<Subcommand.Options>({
   description: 'Search for a Khan Academy user or program',
+  preconditions: ['UserRateLimit'],
   subcommands: [
     {
       name: 'code',

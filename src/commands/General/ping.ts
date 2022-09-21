@@ -7,6 +7,7 @@ import { latencyStats } from '../../lib/mongodb/mongodb'
 
 @ApplyOptions<Command.Options>({
   description: "Get the bot's latency",
+  preconditions: ['UserRateLimit'],
 })
 export class UserCommand extends Command {
   public override registerApplicationCommands(registry: Command.Registry) {

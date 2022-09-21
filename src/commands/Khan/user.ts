@@ -15,6 +15,7 @@ import { BULLET_SEPARATOR } from '../../lib/constants'
 
 @ApplyOptions<Subcommand.Options>({
   description: 'Get info about a Khan Academy user',
+  preconditions: ['UserRateLimit'],
   subcommands: [
     {
       name: 'get',
