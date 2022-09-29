@@ -2,7 +2,7 @@ import './lib/setup'
 import { LogLevel, SapphireClient } from '@sapphire/framework'
 import { login } from './lib/khan-cookies'
 
-const client = new SapphireClient({
+export const client = new SapphireClient({
   logger: {
     level: LogLevel.Debug,
   },

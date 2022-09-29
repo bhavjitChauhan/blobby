@@ -1,16 +1,16 @@
-import { bold, time } from '@discordjs/builders'
+import { bold, inlineCode, time } from '@discordjs/builders'
 import { ApplyOptions } from '@sapphire/decorators'
 import { EmbedLimits } from '@sapphire/discord-utilities'
 import { Subcommand } from '@sapphire/plugin-subcommands'
 import { Stopwatch } from '@sapphire/stopwatch'
 import { Time } from '@sapphire/time-utilities'
 import { MessageActionRow, MessageButton, MessageEmbed } from 'discord.js'
-import { programs, utils, discussion } from 'ka-api'
+import { discussion, programs, utils } from 'ka-api'
 import config from '../../config'
-import { BULLET_SEPARATOR, khanalyticsRecordingStart, RUN_ENVIRONMENTS } from '../../lib/constants'
+import { AcceptedRunEnvironments, BULLET_SEPARATOR, khanalyticsRecordingStart, RunEnvironments, RunEnvironmentTitles } from '../../lib/constants'
 import { ValidationError } from '../../lib/errors'
 import { cookies } from '../../lib/khan-cookies'
-import { formatFieldHeading, formatFieldWarning, formatStopwatch } from '../../lib/utils/discord'
+import { deferReply, formatFieldHeading, formatFieldWarning, formatStopwatch } from '../../lib/utils/discord'
 import { truncate, within } from '../../lib/utils/general'
 import { avatarURL, displayNameFooter, displayNamePrimary, profileURL, truncateScratchpadHyperlink } from '../../lib/utils/khan'
 
@@ -96,7 +96,7 @@ export class UserCommand extends Subcommand {
   private async ensureResponse<T>(interaction: Subcommand.ChatInputInteraction, method: (id: string) => Promise<T>): Promise<T | null> {
     try {
       const id = this.validateID(interaction)
-      return await method.call(this, id)
+      return await method.call(this, id.toString())
     } catch (err) {
       if (err instanceof ValidationError) {
         await interaction.editReply(err.message)
@@ -179,7 +179,10 @@ export class UserCommand extends Subcommand {
         formatFieldHeading('Program'),
         {
           name: 'Type',
-          value: RUN_ENVIRONMENTS[scratchpad.userAuthoredContentType.replace('webpage', 'html')],
+          value:
+            scratchpad.userAuthoredContentType in AcceptedRunEnvironments
+              ? RunEnvironmentTitles[scratchpad.userAuthoredContentType as RunEnvironments]
+              : inlineCode(scratchpad.userAuthoredContentType ?? 'null'),
           inline: true,
         },
         {
@@ -301,7 +304,7 @@ export class UserCommand extends Subcommand {
   }
 
   public async chatInputGet(interaction: Subcommand.ChatInputInteraction) {
-    if (!interaction.deferred && !interaction.replied) await interaction.deferReply()
+    await deferReply(interaction)
 
     const stopwatch = new Stopwatch()
 
@@ -320,7 +323,7 @@ export class UserCommand extends Subcommand {
   }
 
   public async chatInputCode(interaction: Subcommand.ChatInputInteraction) {
-    if (!interaction.deferred && !interaction.replied) await interaction.deferReply()
+    await deferReply(interaction)
 
     const code = await this.ensureResponse(interaction, this.getScratchpadCode)
     if (code === null) return
@@ -329,7 +332,7 @@ export class UserCommand extends Subcommand {
   }
 
   public async chatInputThumbnail(interaction: Subcommand.ChatInputInteraction) {
-    if (!interaction.deferred && !interaction.replied) await interaction.deferReply()
+    await deferReply(interaction)
 
     const thumbnailURL = await this.ensureResponse(interaction, this.getScratchpadThumbnailURL)
     if (thumbnailURL === null) return

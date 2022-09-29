@@ -32,7 +32,7 @@ export class UserCommand extends Command {
     // })
 
     const embed = new MessageEmbed() //
-      .setColor(khanLatency ? 'GREEN' : 'RED')
+      .setColor(khanLatency && mongoLatency ? 'GREEN' : 'RED')
       .setTitle('🏓 Pong!')
       .addFields(
         {

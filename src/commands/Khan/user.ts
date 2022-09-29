@@ -6,7 +6,7 @@ import { cookies } from '../../lib/khan-cookies'
 import { profanity } from '@2toad/profanity'
 import { time } from '@discordjs/builders'
 import { ValidationError } from '../../lib/errors'
-import { formatFieldHeading, formatFieldWarning, formatStopwatch } from '../../lib/utils/discord'
+import { deferReply, formatFieldHeading, formatFieldWarning, formatStopwatch } from '../../lib/utils/discord'
 import { avatarURL, displayNameFooter, profileURL } from '../../lib/utils/khan'
 import { EmbedLimits } from '@sapphire/discord-utilities'
 import { truncate } from '../../lib/utils/general'
@@ -213,7 +213,7 @@ export class UserCommand extends Subcommand {
   }
 
   public async chatInputGet(interaction: Subcommand.ChatInputInteraction) {
-    if (!interaction.deferred && !interaction.replied) await interaction.deferReply()
+    await deferReply(interaction)
 
     const stopwatch = new Stopwatch()
 
@@ -239,7 +239,7 @@ export class UserCommand extends Subcommand {
   }
 
   public async chatInputAvatar(interaction: Subcommand.ChatInputInteraction) {
-    if (!interaction.deferred && !interaction.replied) await interaction.deferReply()
+    await deferReply(interaction)
 
     let avatarURL
     try {

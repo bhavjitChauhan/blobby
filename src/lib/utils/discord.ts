@@ -1,21 +1,33 @@
 import { bold, italic, underscore } from '@discordjs/builders'
 import { EmbedLimits } from '@sapphire/discord-utilities'
 import type { ChatInputCommandSuccessPayload, Command, ContextMenuCommandSuccessPayload, MessageCommandSuccessPayload } from '@sapphire/framework'
-import { container } from '@sapphire/framework'
+import { ChatInputCommand, container } from '@sapphire/framework'
 import { send } from '@sapphire/plugin-editable-commands'
 import type { Stopwatch } from '@sapphire/stopwatch'
 import { cyan } from 'colorette'
 import type { APIUser } from 'discord-api-types/v9'
-import { EmbedField, Guild, Message, MessageEmbed, User } from 'discord.js'
+import { EmbedField, Guild, Message, MessageEmbed, ModalSubmitInteraction, User } from 'discord.js'
 import { RandomLoadingMessage, ZERO_WIDTH_SPACE_CHAR } from '../constants'
 import { pickRandom, truncate } from './general'
+import Interaction = ChatInputCommand.Interaction
+
+export function extractFileType(contentType: string | null) {
+  if (contentType === null) return null
+  return contentType.split(';')[0]
+}
 
 /**
  * Sends a loading message to the current channel
  * @param message The message data for which to send the loading message
  */
 export function sendLoadingMessage(message: Message): Promise<typeof message> {
-  return send(message, { embeds: [new MessageEmbed().setDescription(pickRandom(RandomLoadingMessage)).setColor('#FF0000')] })
+  return send(message, {
+    embeds: [
+      new MessageEmbed() //
+        .setDescription(pickRandom(RandomLoadingMessage))
+        .setColor('#FF0000'),
+    ],
+  })
 }
 
 export function logSuccessCommand(payload: ContextMenuCommandSuccessPayload | ChatInputCommandSuccessPayload | MessageCommandSuccessPayload): void {
@@ -72,6 +84,12 @@ export function extractCodeLine(content: string) {
 
 export function extractCode(content: string) {
   return extractCodeBlock(content) ?? extractCodeLine(content) ?? content
+}
+
+export function deferReply(interaction: Interaction | ModalSubmitInteraction) {
+  if (interaction.deferred) return
+  if (interaction.replied) return
+  return interaction.deferReply()
 }
 
 export function formatFieldHeading(heading: string): EmbedField {

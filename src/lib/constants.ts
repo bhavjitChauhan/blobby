@@ -13,12 +13,21 @@ export const khanalyticsRecordingStart = 1629266402000
 
 export const RandomLoadingMessage = ['Computing...', 'Thinking...', 'Cooking some food', 'Give me a moment', 'Loading...']
 
-export const RUN_ENVIRONMENTS: Record<string, string> = {
-  pjs: 'Processing.js',
-  html: 'HTML',
-  sql: 'SQL',
+export const enum RunEnvironments {
+  PJS = 'pjs',
+  Webpage = 'webpage',
+  SQL = 'sql',
 }
 
-export const RUN_PJS_OPTIONS_KEYS = ['width', 'height', 'delay', 'canvas', 'loopProtector']
-export const RUN_HTML_OPTIONS_KEYS = ['width', 'height', 'boilerplate']
-export const RUN_SQL_OPTIONS_KEYS = ['width', 'height']
+export const RunEnvironmentTitles: Record<RunEnvironments, string> = {
+  [RunEnvironments.PJS]: 'Processing.js',
+  [RunEnvironments.Webpage]: 'Webpage',
+  [RunEnvironments.SQL]: 'SQL',
+}
+export const RunEnvironmentOptionKeys: Record<RunEnvironments, string[]> = {
+  [RunEnvironments.PJS]: ['width', 'height', 'delay', 'canvas', 'loopProtector'],
+  [RunEnvironments.Webpage]: ['width', 'height', 'boilerplate'],
+  [RunEnvironments.SQL]: ['width', 'height'],
+}
+
+export const AcceptedRunEnvironments = [RunEnvironments.PJS, RunEnvironments.Webpage, RunEnvironments.SQL]
