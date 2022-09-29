@@ -25,10 +25,14 @@ export async function runPJS(interaction: ModalSubmitInteraction | Subcommand.Ch
     options.width,
     options.height,
     async (frameHandle) => {
-      if (!options.loopProtector)
-        await frameHandle.evaluate(() => {
+      if (!options.loopProtector) {
+        const frame = await frameHandle.contentFrame()
+        if (!frame) throw new Error('Could not resolve output frame')
+
+        await frame.evaluate(() => {
           window.LoopProtector.prototype.leave = null
         })
+      }
     },
     async (frameHandle, data) => {
       // Wait for any user-specified delay
