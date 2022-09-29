@@ -165,6 +165,10 @@ export class UserCommand extends Subcommand {
     options.loopProtector = options.loopProtector ?? true
     options.canvas = options.canvas ?? true
     options.animated = options.animated ?? false
+    if (options.animated) {
+      if (options.width !== null && options.width > config.run.animation.maxWidth) options.width = config.run.width.default
+      if (options.height !== null && options.height > config.run.animation.maxHeight) options.height = config.run.height.default
+    }
 
     await this.chatInput(interaction, RunEnvironments.PJS, options as RunOptionsPJS)
   }
