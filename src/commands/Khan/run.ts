@@ -11,10 +11,10 @@ import { deferReply, extractFileType } from '../../lib/utils/discord'
 import { parseProgram } from '../../lib/utils/khan'
 import { programs } from 'ka-api'
 import config from '../../config'
-import { RunEnvironmentOptionKeys, RunEnvironments, RunEnvironmentTitles } from '../../lib/constants'
+import { ErrorMessages, RunEnvironmentOptionKeys, RunEnvironments, RunEnvironmentTitles } from '../../lib/constants'
 
 @ApplyOptions<Subcommand.Options>({
-  description: 'Run code in the Khan Academy environment',
+  description: 'Run code on Khan Academy',
   preconditions: ['UserRateLimit'],
   subcommands: [
     {
@@ -32,10 +32,11 @@ import { RunEnvironmentOptionKeys, RunEnvironments, RunEnvironmentTitles } from 
   ],
 })
 export class UserCommand extends Subcommand {
+  readonly #OPTION_DESCRIPTION_PROGRAM = 'Give me a program ID or URL to run it instead'
+  readonly #OPTION_DESCRIPTION_FILE = 'Give me a file to run it instead'
+
   readonly #UNSUPPORTED_FILE_TYPE = "I can't work with that type of file"
   readonly #FILE_FETCH_ERROR = "I couldn't get that file from Discord"
-  readonly #INVALID_PROGRAM = "That doesn't look like a real program"
-  readonly #PROGRAM_NOT_FOUND = "I couldn't find that program"
   readonly #INVALID_PROGRAM_TYPE = 'That looks like the wrong type of program'
 
   public override registerApplicationCommands(registry: Subcommand.Registry) {
@@ -47,101 +48,101 @@ export class UserCommand extends Subcommand {
           .addSubcommand((subcommand) =>
             subcommand //
               .setName('pjs')
-              .setDescription('Runs Processing.js code in the Khan Academy environment')
+              .setDescription('Runs Processing.js code on Khan Academy')
               .addIntegerOption((option) =>
                 option //
                   .setName('width')
-                  .setDescription('Width of the canvas')
+                  .setDescription("What's the canvas width?")
               )
               .addIntegerOption((option) =>
                 option //
                   .setName('height')
-                  .setDescription('Height of the canvas')
-              )
-              .addNumberOption((option) =>
-                option //
-                  .setName('delay')
-                  .setDescription('Delay in milliseconds before the result is retrieved')
+                  .setDescription('Whats the canvas height?')
               )
               .addBooleanOption((option) =>
                 option //
                   .setName('loop-protector')
-                  .setDescription('Whether to enable the loop protector')
+                  .setDescription('Should the loop detector be enabled?')
               )
               .addBooleanOption((option) =>
                 option //
-                  .setName('canvas')
-                  .setDescription('Whether to show the canvas')
+                  .setName('screenshot')
+                  .setDescription('Should I take a screenshot of the canvas?')
+              )
+              .addNumberOption((option) =>
+                option //
+                  .setName('delay')
+                  .setDescription('How long should I wait before taking the screenshot?')
               )
               .addBooleanOption((option) =>
                 option //
                   .setName('animated')
-                  .setDescription('Whether to record a GIF of the canvas')
+                  .setDescription('Should I record a short GIF instead?')
               )
               .addStringOption((option) =>
                 option //
                   .setName('program')
-                  .setDescription('The ID or URL of the program')
+                  .setDescription(this.#OPTION_DESCRIPTION_PROGRAM)
               )
               .addAttachmentOption((option) =>
                 option //
                   .setName('file')
-                  .setDescription('File to run')
+                  .setDescription(this.#OPTION_DESCRIPTION_FILE)
               )
           )
           .addSubcommand((subcommand) =>
             subcommand //
               .setName('html')
-              .setDescription('Runs HTML in the Khan Academy environment')
+              .setDescription('Runs HTML on Khan Academy')
               .addIntegerOption((option) =>
                 option //
                   .setName('width')
-                  .setDescription('Width of the webpage')
+                  .setDescription("What's the webpage width?")
               )
               .addIntegerOption((option) =>
                 option //
                   .setName('height')
-                  .setDescription('Height of the webpage')
+                  .setDescription("What's the webpage height?")
               )
               .addBooleanOption((option) =>
                 option //
                   .setName('boilerplate')
-                  .setDescription('Whether to wrap HTML in boilerplate')
+                  .setDescription('Should I wrap the HTML in some boilerplate?')
               )
               .addStringOption((option) =>
                 option //
                   .setName('program')
-                  .setDescription('The ID or URL of the program')
+                  .setDescription(this.#OPTION_DESCRIPTION_PROGRAM)
               )
               .addAttachmentOption((option) =>
                 option //
                   .setName('file')
-                  .setDescription('File to run')
+                  .setDescription(this.#OPTION_DESCRIPTION_FILE)
               )
           )
           .addSubcommand((subcommand) =>
             subcommand //
               .setName('sql')
-              .setDescription('Runs SQL code in the Khan Academy environment')
+              .setDescription('Runs SQL on Khan Academy')
               .addIntegerOption((option) =>
                 option //
                   .setName('width')
-                  .setDescription('Width of the output')
+                  .setDescription("What's the output width?")
               )
               .addIntegerOption((option) =>
                 option //
                   .setName('height')
-                  .setDescription('Height of the output')
+                  .setDescription("What's the output height?")
               )
               .addStringOption((option) =>
                 option //
                   .setName('program')
-                  .setDescription('The ID or URL of the program')
+                  .setDescription(this.#OPTION_DESCRIPTION_PROGRAM)
               )
               .addAttachmentOption((option) =>
                 option //
                   .setName('file')
-                  .setDescription('File to run')
+                  .setDescription(this.#OPTION_DESCRIPTION_FILE)
               )
           ),
       { idHints: ['1013180516712857651', '1020204329111658577'] }
@@ -242,7 +243,7 @@ export class UserCommand extends Subcommand {
       } else {
         const id = parseProgram(program!)
         if (!id) {
-          await interaction.reply(this.#INVALID_PROGRAM)
+          await interaction.reply(ErrorMessages.InvalidProgram)
           return
         }
 
@@ -251,7 +252,7 @@ export class UserCommand extends Subcommand {
           else throw reason
         })
         if (!data) {
-          await interaction.reply(this.#PROGRAM_NOT_FOUND)
+          await interaction.reply(ErrorMessages.ProgramNotFound)
           return
         }
 

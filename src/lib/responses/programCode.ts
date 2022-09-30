@@ -12,7 +12,7 @@ export async function programCode(interaction: Subcommand.ChatInputInteraction |
 
   const id = parseProgram(program)
   if (id === null) {
-    await interaction.editReply(ErrorMessages.InvalidProgramID)
+    await interaction.editReply(ErrorMessages.InvalidProgram)
     return
   }
 

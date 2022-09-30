@@ -26,6 +26,8 @@ import { ErrorMessages } from '../../lib/constants'
   ],
 })
 export class UserCommand extends Subcommand {
+  readonly #OPTION_DESCRIPTION_PROGRAM = "What's the ID or URL of the program?"
+
   public override registerApplicationCommands(registry: Subcommand.Registry) {
     registry.registerChatInputCommand(
       (builder) =>
@@ -35,11 +37,11 @@ export class UserCommand extends Subcommand {
           .addSubcommand((subcommand) =>
             subcommand //
               .setName('get')
-              .setDescription('Get general information about a program')
+              .setDescription('Get general info about a program')
               .addStringOption((option) =>
                 option //
                   .setName('program')
-                  .setDescription('The ID or URL of the program')
+                  .setDescription(this.#OPTION_DESCRIPTION_PROGRAM)
                   .setRequired(true)
               )
           )
@@ -50,7 +52,7 @@ export class UserCommand extends Subcommand {
               .addStringOption((option) =>
                 option //
                   .setName('program')
-                  .setDescription('The ID or URL of the program')
+                  .setDescription(this.#OPTION_DESCRIPTION_PROGRAM)
                   .setRequired(true)
               )
           )
@@ -61,7 +63,7 @@ export class UserCommand extends Subcommand {
               .addStringOption((option) =>
                 option //
                   .setName('program')
-                  .setDescription('The ID or URL of the program')
+                  .setDescription(this.#OPTION_DESCRIPTION_PROGRAM)
                   .setRequired(true)
               )
           ),
@@ -79,7 +81,7 @@ export class UserCommand extends Subcommand {
     return data.imageUrl
   }
 
-  public async chatInputGet(interaction: Subcommand.ChatInputInteraction) {
+  public override async chatInputGet(interaction: Subcommand.ChatInputInteraction) {
     const program = interaction.options.getString('program', true)
     await programGet(interaction, program)
   }
@@ -95,7 +97,7 @@ export class UserCommand extends Subcommand {
     const program = interaction.options.getString('program', true)
     const id = parseProgram(program)
     if (id === null) {
-      await interaction.editReply(ErrorMessages.InvalidProgramID)
+      await interaction.editReply(ErrorMessages.InvalidProgram)
       return
     }
 

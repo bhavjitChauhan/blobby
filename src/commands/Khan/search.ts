@@ -46,13 +46,13 @@ export class UserCommand extends Subcommand {
               .addStringOption((option) =>
                 option //
                   .setName('query')
-                  .setDescription('Full-text query for program code')
+                  .setDescription('What should I search the code for?')
                   .setRequired(true)
               )
               .addStringOption((option) =>
                 option //
                   .setName('sort')
-                  .setDescription('What to sort results by')
+                  .setDescription('What should I sort the programs by?')
                   .addChoices(
                     {
                       name: 'Votes',
@@ -80,13 +80,13 @@ export class UserCommand extends Subcommand {
               .addStringOption((option) =>
                 option //
                   .setName('query')
-                  .setDescription('Full-text query for Khan Academy nickname or username')
+                  .setDescription('What nickname or username should I search for?')
                   .setRequired(true)
               )
               .addStringOption((option) =>
                 option //
                   .setName('sort')
-                  .setDescription('What to sort results by')
+                  .setDescription('What should I sort the users by?')
                   .addChoices(
                     {
                       name: 'Votes',

@@ -7,6 +7,7 @@ import { ValidationError } from '../../lib/errors'
 import { deferReply } from '../../lib/utils/discord'
 import { avatarURL } from '../../lib/utils/khan'
 import { userGet } from '../../lib/responses/userGet'
+import { ErrorMessages } from '../../lib/constants'
 
 @ApplyOptions<Subcommand.Options>({
   description: 'Get info about a Khan Academy user',
@@ -23,8 +24,7 @@ import { userGet } from '../../lib/responses/userGet'
   ],
 })
 export class UserCommand extends Subcommand {
-  readonly #INAPPROPRIATE_USER = "I can't search for that user"
-  readonly #PROFILE_NOT_FOUND = "I couldn't find that user"
+  readonly #OPTION_DESCRIPTION_USER = "What's the username or ID of the user?"
 
   public override registerApplicationCommands(registry: Subcommand.Registry) {
     registry.registerChatInputCommand(
@@ -35,22 +35,22 @@ export class UserCommand extends Subcommand {
           .addSubcommand((subcommand) =>
             subcommand //
               .setName('get')
-              .setDescription('Get profile info about a Khan Academy user')
+              .setDescription('Get general info about a user')
               .addStringOption((option) =>
                 option //
                   .setName('user')
-                  .setDescription('The username or kaid of the user')
+                  .setDescription(this.#OPTION_DESCRIPTION_USER)
                   .setRequired(true)
               )
           )
           .addSubcommand((subcommand) =>
             subcommand //
               .setName('avatar')
-              .setDescription("Get a Khan Academy user's avatar")
+              .setDescription("Get a user's avatar")
               .addStringOption((option) =>
                 option //
                   .setName('user')
-                  .setDescription('The username or kaid of the user')
+                  .setDescription(this.#OPTION_DESCRIPTION_USER)
                   .setRequired(true)
               )
           ),
@@ -60,23 +60,23 @@ export class UserCommand extends Subcommand {
 
   private async getAvatarURL(interaction: Subcommand.ChatInputInteraction) {
     let user = interaction.options.getString('user', true) as string
-    if (profanity.exists(user)) throw new ValidationError(this.#INAPPROPRIATE_USER)
+    if (profanity.exists(user)) throw new ValidationError(ErrorMessages.InappropriateUser)
 
     try {
       utils.isValidKaid(user)
     } catch {
       const profileInfo = await profile.getProfileInfo(cookies, user)
-      if (profileInfo.data.user === null) throw new ValidationError(this.#PROFILE_NOT_FOUND)
+      if (profileInfo.data.user === null) throw new ValidationError(ErrorMessages.UserNotFound)
       user = profileInfo.data.user.kaid
     }
 
     const avatarData = await profile.avatarDataForProfile(cookies, user)
-    if (avatarData.data.user === null) throw new ValidationError(this.#PROFILE_NOT_FOUND)
+    if (avatarData.data.user === null) throw new ValidationError(ErrorMessages.UserNotFound)
 
     return avatarURL(avatarData.data.user.avatar.imageSrc)
   }
 
-  public async chatInputGet(interaction: Subcommand.ChatInputInteraction) {
+  public override async chatInputGet(interaction: Subcommand.ChatInputInteraction) {
     const user = interaction.options.getString('user', true)
 
     await userGet(interaction, user)

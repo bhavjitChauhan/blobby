@@ -1,14 +1,7 @@
 import { deferReply, formatFieldHeading, formatFieldWarning, formatStopwatch } from '../utils/discord'
 import { Stopwatch } from '@sapphire/stopwatch'
 import { avatarURL, displayNameFooter, displayNamePrimary, parseProgram, profileURL, truncateScratchpadHyperlink } from '../utils/khan'
-import {
-  AcceptedRunEnvironments,
-  BULLET_SEPARATOR,
-  ErrorMessages,
-  khanalyticsRecordingStart,
-  RunEnvironments,
-  RunEnvironmentTitles,
-} from '../constants'
+import { AcceptedRunEnvironments, BULLET_SEPARATOR, ErrorMessages, KHANALYTICS_START, RunEnvironments, RunEnvironmentTitles } from '../constants'
 import type { Subcommand } from '@sapphire/plugin-subcommands'
 import { MessageActionRow, MessageButton, MessageEmbed } from 'discord.js'
 import { EmbedLimits } from '@sapphire/discord-utilities'
@@ -26,7 +19,7 @@ export async function programGet(interaction: Subcommand.ChatInputInteraction, p
 
   const id = parseProgram(program)
   if (id === null) {
-    await interaction.editReply(ErrorMessages.InvalidProgramID)
+    await interaction.editReply(ErrorMessages.InvalidProgram)
     return
   }
 
@@ -229,7 +222,7 @@ function createComponents(scratchpadData: ScratchpadData) {
           : `https://www.khanacademy.org/computer-programming/-/${scratchpadData.scratchpad.scratchpad.id}`
       ),
   ]
-  if (new Date(scratchpadData.scratchpad.scratchpad.created).getTime() > khanalyticsRecordingStart)
+  if (new Date(scratchpadData.scratchpad.scratchpad.created).getTime() > KHANALYTICS_START)
     components.push(
       new MessageButton() //
         .setEmoji('📊')
