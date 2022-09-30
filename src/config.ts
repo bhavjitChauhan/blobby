@@ -25,7 +25,7 @@ export default {
       max: Time.Minute,
     },
     animation: {
-      delay: Time.Second / 15,
+      fps: 15,
       duration: Time.Second * 5,
       maxWidth: 600,
       maxHeight: 600,

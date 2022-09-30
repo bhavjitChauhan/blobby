@@ -10,6 +10,7 @@ import { GifEncoder } from '@skyra/gifenc'
 import config from '../../config'
 import consumers from 'node:stream/consumers'
 import { createCanvas, loadImage } from 'canvas'
+import { Time } from '@sapphire/time-utilities'
 
 export async function runPJS(interaction: ModalSubmitInteraction | Subcommand.ChatInputInteraction, code: string, options: RunOptionsPJS) {
   if (isNullish(code) || code.trim().length === 0) return interaction.editReply('No code provided')
@@ -47,6 +48,20 @@ export async function runPJS(interaction: ModalSubmitInteraction | Subcommand.Ch
         if (!canvasHandle) throw new Error('Could not find output canvas')
 
         if (options.animated) {
+          const start = Date.now(),
+            urls = []
+          let previous = start
+          while (Date.now() - start < config.run.animation.duration) {
+            const url = await canvasHandle.evaluate((canvasElement) => {
+              const canvas = canvasElement as HTMLCanvasElement
+              return canvas.toDataURL()
+            })
+            urls.push(url)
+
+            await waitForTimeout(Math.max(0, Time.Second / config.run.animation.fps - (Date.now() - previous)))
+            previous = Date.now()
+          }
+
           const canvas = createCanvas(options.width, options.height),
             ctx = canvas.getContext('2d')
 
@@ -54,22 +69,19 @@ export async function runPJS(interaction: ModalSubmitInteraction | Subcommand.Ch
           const stream = encoder.createReadStream()
           encoder //
             .setRepeat(0)
-            .setDelay(config.run.animation.delay)
-            .setQuality(10)
+            // .setDelay(Time.Second / config.run.animation.fps)
+            .setFramerate(config.run.animation.fps)
+            .setQuality(15)
             .start()
 
-          const start = Date.now()
-          while (Date.now() - start < config.run.animation.duration) {
-            const url = await canvasHandle.evaluate((canvasElement) => {
-              const canvas = canvasElement as HTMLCanvasElement
-              return canvas.toDataURL()
-            })
+          for (const url of urls) {
             const image = await loadImage(url)
             ctx.drawImage(image, 0, 0)
             const arr = ctx.getImageData(0, 0, options.width, options.height).data
             encoder.addFrame(arr)
           }
           encoder.finish()
+
           data.buffer = await consumers.buffer(stream)
         } else {
           // Get the image data from the canvas as a string
