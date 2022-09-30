@@ -28,7 +28,7 @@ export class UserCommand extends Command {
               .setName('mention')
               .setDescription('Should I tell anyone in particular?')
           ),
-      { idHints: ['1025290775094890547'] }
+      { idHints: ['1025325503357390909', '1025290775094890547'] }
     )
   }
 
@@ -40,6 +40,7 @@ export class UserCommand extends Command {
     if (focusedOption.name === 'topic') {
       results = results.concat(tags.filter((tag) => tag.keywords.includes(query)))
       results = results.concat(tags.filter((tag) => tag.keywords.find((keyword) => keyword.includes(query))))
+      // noinspection JSVoidFunctionReturnValueUsed
       results = results.concat(tags.filter((tag) => tag.content.toLowerCase().includes(query)))
     }
 
