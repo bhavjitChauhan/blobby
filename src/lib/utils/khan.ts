@@ -2,7 +2,7 @@ import { bold, hyperlink } from '@discordjs/builders'
 import { EmbedLimits, HttpUrlRegex } from '@sapphire/discord-utilities'
 import { BULLET_SEPARATOR } from '../constants'
 import { isIntegerString, parseKeyPath, truncate } from './general'
-import { programs, utils } from 'ka-api'
+import { utils } from 'ka-api'
 
 export function parseProgram(program: string) {
   let id: number
@@ -96,13 +96,4 @@ export function sortScratchpadsByDate(scratchpads: Record<string, unknown>[], cr
     )
     return ascending ? aTime - bTime : bTime - aTime
   })
-}
-
-export async function getScratchpadCode(id: number) {
-  const data = await programs.getProgramJSON(id, { revision: { code: 1 } }).catch((reason) => {
-    if (reason.response?.status === 404) return null
-    else throw reason
-  })
-
-  return data?.revision.code ?? null
 }

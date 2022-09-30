@@ -5,16 +5,16 @@ import { Subcommand } from '@sapphire/plugin-subcommands'
 import { Stopwatch } from '@sapphire/stopwatch'
 import { Time } from '@sapphire/time-utilities'
 import { MessageActionRow, MessageButton, MessageEmbed } from 'discord.js'
-import { discussion, programs, utils } from 'ka-api'
+import { discussion, programs } from 'ka-api'
 import config from '../../config'
 import { AcceptedRunEnvironments, BULLET_SEPARATOR, khanalyticsRecordingStart, RunEnvironments, RunEnvironmentTitles } from '../../lib/constants'
 import { ValidationError } from '../../lib/errors'
 import { cookies } from '../../lib/khan-cookies'
 import { deferReply, formatFieldHeading, formatFieldWarning, formatStopwatch } from '../../lib/utils/discord'
 import { truncate, within } from '../../lib/utils/general'
-import { avatarURL, displayNameFooter, displayNamePrimary, profileURL, truncateScratchpadHyperlink } from '../../lib/utils/khan'
-
-const { isValidProgramID } = utils
+import { avatarURL, displayNameFooter, displayNamePrimary, parseProgram, profileURL, truncateScratchpadHyperlink } from '../../lib/utils/khan'
+import type { ShowScratchpad } from 'programs/programs'
+import type { FeedbackQuery } from 'discussion/feedbackQuery'
 
 @ApplyOptions<Subcommand.Options>({
   description: 'Get info about a Khan Academy program',
@@ -82,31 +82,9 @@ export class UserCommand extends Subcommand {
     )
   }
 
-  private validateID(interaction: Subcommand.ChatInputInteraction) {
-    const id = utils.extractProgramID(interaction.options.getString('program', true))
-    try {
-      isValidProgramID(id)
-    } catch (err) {
-      throw new ValidationError(this.#INVALID_ID)
-    }
-
-    return id
-  }
-
-  private async ensureResponse<T>(interaction: Subcommand.ChatInputInteraction, method: (id: string) => Promise<T>): Promise<T | null> {
-    try {
-      const id = this.validateID(interaction)
-      return await method.call(this, id.toString())
-    } catch (err) {
-      if (err instanceof ValidationError) {
-        await interaction.editReply(err.message)
-        return null
-      } else throw err
-    }
-  }
-
-  private async getScratchpadData(id: string) {
-    const [scratchpad, questions, comments] = await Promise.all([
+  private async getScratchpadData(id: number) {
+    let scratchpad, questions, comments
+    ;[scratchpad, questions, comments] = await Promise.all([
       programs.showScratchpad(id),
       discussion.feedbackQuery(cookies, id, 'QUESTION', 1, config.program.discussionLimit),
       discussion.feedbackQuery(cookies, id, 'COMMENT', 1, config.program.discussionLimit),
@@ -115,8 +93,8 @@ export class UserCommand extends Subcommand {
       else throw reason
     })
 
-    if (typeof scratchpad === 'string') throw new ValidationError(this.#PROGRAM_NOT_FOUND)
-    if (typeof questions.data.feedback === null || typeof comments.data.feedback === null) throw new ValidationError(this.#FEEDBACK_NOT_FOUND)
+    if (typeof scratchpad === 'string') scratchpad = null
+    if (typeof questions.data.feedback === null || typeof comments.data.feedback === null) questions = comments = null
 
     return {
       scratchpad,
@@ -125,20 +103,22 @@ export class UserCommand extends Subcommand {
     }
   }
 
-  private async getScratchpadCode(id: string) {
+  private async getScratchpadCode(id: number) {
     const data = await programs.getProgramJSON(id, { revision: { code: 1 } }).catch((reason) => {
-      if (reason.response?.status === 404) throw new ValidationError(this.#PROGRAM_NOT_FOUND)
+      if (reason.response?.status === 404) return null
       else throw reason
     })
+    if (data === null) return null
 
     return data.revision.code
   }
 
-  private async getScratchpadThumbnailURL(id: string) {
+  private async getScratchpadThumbnailURL(id: number) {
     const data = await programs.getProgramJSON(id, { imageUrl: 1 }).catch((reason) => {
-      if (reason.response?.status === 404) throw new ValidationError(this.#PROGRAM_NOT_FOUND)
+      if (reason.response?.status === 404) return null
       else throw reason
     })
+    if (data === null) return null
 
     return data.imageUrl
   }
@@ -308,25 +288,49 @@ export class UserCommand extends Subcommand {
 
     const stopwatch = new Stopwatch()
 
-    const data = await this.ensureResponse(interaction, this.getScratchpadData)
-    if (data === null) return
+    const program = interaction.options.getString('program', true)
+    const id = parseProgram(program)
+    if (id === null) {
+      await interaction.editReply(this.#INVALID_ID)
+      return
+    }
 
-    const embeds = this.embedsGet(data)
+    const data = await this.getScratchpadData(id)
+    if (data === null || data.scratchpad === null) {
+      await interaction.editReply(this.#PROGRAM_NOT_FOUND)
+      return
+    }
+    if (data.questions === null || data.comments === null) {
+      await interaction.editReply(this.#FEEDBACK_NOT_FOUND)
+      return
+    }
+
+    const embeds = this.embedsGet(data as ScratchpadData)
     embeds[0].setFooter({
       text: [embeds[0].footer!.text, formatStopwatch(stopwatch)].join(BULLET_SEPARATOR),
       iconURL: embeds[0].footer!.iconURL,
     })
     await interaction.editReply({
       embeds: embeds,
-      components: this.componentsGet(data),
+      components: this.componentsGet(data as ScratchpadData),
     })
   }
 
   public async chatInputCode(interaction: Subcommand.ChatInputInteraction) {
     await deferReply(interaction)
 
-    const code = await this.ensureResponse(interaction, this.getScratchpadCode)
-    if (code === null) return
+    const program = interaction.options.getString('program', true)
+    const id = parseProgram(program)
+    if (id === null) {
+      await interaction.editReply(this.#INVALID_ID)
+      return
+    }
+
+    const code = await this.getScratchpadCode(id)
+    if (code === null) {
+      await interaction.editReply(this.#PROGRAM_NOT_FOUND)
+      return
+    }
 
     await interaction.editReply({ files: [{ attachment: Buffer.from(code), name: 'code.js' }] })
   }
@@ -334,11 +338,25 @@ export class UserCommand extends Subcommand {
   public async chatInputThumbnail(interaction: Subcommand.ChatInputInteraction) {
     await deferReply(interaction)
 
-    const thumbnailURL = await this.ensureResponse(interaction, this.getScratchpadThumbnailURL)
-    if (thumbnailURL === null) return
+    const program = interaction.options.getString('program', true)
+    const id = parseProgram(program)
+    if (id === null) {
+      await interaction.editReply(this.#INVALID_ID)
+      return
+    }
+
+    const thumbnailURL = await this.getScratchpadThumbnailURL(id)
+    if (thumbnailURL === null) {
+      await interaction.editReply(this.#PROGRAM_NOT_FOUND)
+      return
+    }
 
     await interaction.editReply({ files: [{ attachment: thumbnailURL, name: 'thumbnail.png' }] })
   }
 }
 
-type ScratchpadData = Awaited<ReturnType<UserCommand['getScratchpadData']>>
+interface ScratchpadData {
+  scratchpad: ShowScratchpad
+  questions: FeedbackQuery
+  comments: FeedbackQuery
+}

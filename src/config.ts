@@ -29,6 +29,7 @@ export default {
       duration: Time.Second * 5,
       maxWidth: 600,
       maxHeight: 600,
+      quality: 15,
     },
   },
   search: {

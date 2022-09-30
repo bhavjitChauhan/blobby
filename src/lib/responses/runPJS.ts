@@ -71,7 +71,7 @@ export async function runPJS(interaction: ModalSubmitInteraction | Subcommand.Ch
             .setRepeat(0)
             // .setDelay(Time.Second / config.run.animation.fps)
             .setFramerate(config.run.animation.fps)
-            .setQuality(15)
+            .setQuality(config.run.animation.quality)
             .start()
 
           for (const url of urls) {
