@@ -1,4 +1,4 @@
-import { bold, italic } from '@discordjs/builders'
+import { bold, hyperlink, italic } from '@discordjs/builders'
 import { EmbedLimits } from '@sapphire/discord-utilities'
 import type { ChatInputCommandSuccessPayload, Command, ContextMenuCommandSuccessPayload, MessageCommandSuccessPayload } from '@sapphire/framework'
 import { ChatInputCommand, container } from '@sapphire/framework'
@@ -14,6 +14,10 @@ import Interaction = ChatInputCommand.Interaction
 export function extractFileType(contentType: string | null) {
   if (contentType === null) return null
   return contentType.split(';')[0]
+}
+
+export function hyperlinkSilent(content: string, url: string) {
+  return hyperlink(content, `<${url}>`)
 }
 
 /**

@@ -9,7 +9,7 @@ export const BULLET_CHAR = '\u2022'
 
 export const BULLET_SEPARATOR = `  ${BULLET_CHAR}  `
 
-export const khanalyticsRecordingStart = 1629266402000
+export const KHANALYTICS_START = 1629266402000
 
 export const RandomLoadingMessage = ['Computing...', 'Thinking...', 'Cooking some food', 'Give me a moment', 'Loading...']
 
@@ -34,7 +34,7 @@ export const AcceptedRunEnvironments = ['pjs', 'webpage', 'sql']
 
 export const enum ErrorMessages {
   InappropriateUser = "I can't search for that user",
-  InvalidProgramID = "That doesn't look like a valid program ID",
+  InvalidProgram = "That doesn't look like a real program",
   UserNotFound = "I couldn't find that user",
   ProgramNotFound = "I couldn't find that program",
   FeedbackNotFound = "I couldn't find any feedback for that program",
