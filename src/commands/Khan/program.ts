@@ -81,7 +81,7 @@ export class UserCommand extends Subcommand {
     return data.imageUrl
   }
 
-  public override async chatInputGet(interaction: Subcommand.ChatInputInteraction) {
+  public async chatInputGet(interaction: Subcommand.ChatInputInteraction) {
     const program = interaction.options.getString('program', true)
     await programGet(interaction, program)
   }

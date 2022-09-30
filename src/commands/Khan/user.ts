@@ -76,7 +76,7 @@ export class UserCommand extends Subcommand {
     return avatarURL(avatarData.data.user.avatar.imageSrc)
   }
 
-  public override async chatInputGet(interaction: Subcommand.ChatInputInteraction) {
+  public async chatInputGet(interaction: Subcommand.ChatInputInteraction) {
     const user = interaction.options.getString('user', true)
 
     await userGet(interaction, user)
