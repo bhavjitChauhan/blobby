@@ -1,14 +1,24 @@
 import type { ModalSubmitInteraction } from 'discord.js'
-import { MessageAttachment, MessageEmbed } from 'discord.js'
+import { ButtonInteraction, MessageAttachment, MessageEmbed } from 'discord.js'
 import type { Subcommand } from '@sapphire/plugin-subcommands'
 import { isNullish } from '@sapphire/utilities'
 import { evaluate } from '../puppeteer'
 import { formatStopwatch } from '../utils/discord'
 import { unescapeHTML } from '../utils/general'
 import { RunEnvironments, RunEnvironmentTitles } from '../constants'
+import config from '../../config'
 
-export async function runWebpage(interaction: ModalSubmitInteraction | Subcommand.ChatInputInteraction, code: string, options: RunOptionsWebpage) {
+export async function runWebpage(
+  interaction: Subcommand.ChatInputInteraction | ButtonInteraction | ModalSubmitInteraction,
+  code: string,
+  partialOptions: Partial<RunOptionsWebpage>
+) {
   if (isNullish(code) || code.trim().length === 0) return interaction.editReply('No code provided')
+
+  const options = {
+    ...DefaultRunOptionsWebpage,
+    ...partialOptions,
+  }
 
   const {
     success,
@@ -33,6 +43,12 @@ export async function runWebpage(interaction: ModalSubmitInteraction | Subcomman
   }
 
   return interaction.editReply({ embeds: [embed], files: attachment ? [attachment] : [] })
+}
+
+export const DefaultRunOptionsWebpage: RunOptionsWebpage = {
+  width: config.run.width.default,
+  height: config.run.height.default,
+  boilerplate: true,
 }
 
 export interface RunOptionsWebpage {

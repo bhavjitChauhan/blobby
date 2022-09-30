@@ -1,5 +1,5 @@
 import { codeBlock, isNullish } from '@sapphire/utilities'
-import { MessageAttachment, MessageEmbed, ModalSubmitInteraction } from 'discord.js'
+import { ButtonInteraction, MessageAttachment, MessageEmbed, ModalSubmitInteraction } from 'discord.js'
 import { formatStopwatch } from '../utils/discord'
 import { EmbedLimits } from '@sapphire/discord-utilities'
 import { pluralize, unescapeHTML, waitForTimeout } from '../utils/general'
@@ -12,8 +12,17 @@ import consumers from 'node:stream/consumers'
 import { createCanvas, loadImage } from 'canvas'
 import { Time } from '@sapphire/time-utilities'
 
-export async function runPJS(interaction: ModalSubmitInteraction | Subcommand.ChatInputInteraction, code: string, options: RunOptionsPJS) {
+export async function runPJS(
+  interaction: Subcommand.ChatInputInteraction | ButtonInteraction | ModalSubmitInteraction,
+  code: string,
+  partialOptions: Partial<RunOptionsPJS>
+) {
   if (isNullish(code) || code.trim().length === 0) return interaction.editReply('No code provided')
+
+  const options: RunOptionsPJS = {
+    ...DefaultRunOptionsPJS,
+    ...partialOptions,
+  }
 
   const {
     success,
@@ -127,6 +136,15 @@ export async function runPJS(interaction: ModalSubmitInteraction | Subcommand.Ch
   }
 
   return interaction.editReply({ embeds: [embed], files: attachment ? [attachment] : [] })
+}
+
+export const DefaultRunOptionsPJS: RunOptionsPJS = {
+  width: config.run.width.default,
+  height: config.run.height.default,
+  delay: config.run.delay.min,
+  loopProtector: true,
+  canvas: true,
+  animated: false,
 }
 
 export interface RunOptionsPJS {

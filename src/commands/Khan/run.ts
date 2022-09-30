@@ -265,7 +265,6 @@ export class UserCommand extends Subcommand {
         code = data.revision.code
       }
 
-      // @ts-expect-error options argument is not typed correctly
       await RunEnvironmentFunctions[environment](interaction, code, options)
     } else {
       const modal = this.createModal(environment, options)

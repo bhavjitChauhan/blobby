@@ -1,4 +1,4 @@
-import { bold, italic, underscore } from '@discordjs/builders'
+import { bold, italic } from '@discordjs/builders'
 import { EmbedLimits } from '@sapphire/discord-utilities'
 import type { ChatInputCommandSuccessPayload, Command, ContextMenuCommandSuccessPayload, MessageCommandSuccessPayload } from '@sapphire/framework'
 import { ChatInputCommand, container } from '@sapphire/framework'
@@ -6,7 +6,7 @@ import { send } from '@sapphire/plugin-editable-commands'
 import type { Stopwatch } from '@sapphire/stopwatch'
 import { cyan } from 'colorette'
 import type { APIUser } from 'discord-api-types/v9'
-import { EmbedField, Guild, Message, MessageEmbed, ModalSubmitInteraction, User } from 'discord.js'
+import { ButtonInteraction, EmbedField, Guild, Message, MessageEmbed, ModalSubmitInteraction, User } from 'discord.js'
 import { RandomLoadingMessage, ZERO_WIDTH_SPACE_CHAR } from '../constants'
 import { pickRandom, truncate } from './general'
 import Interaction = ChatInputCommand.Interaction
@@ -86,7 +86,7 @@ export function extractCode(content: string) {
   return extractCodeBlock(content) ?? extractCodeLine(content) ?? content
 }
 
-export function deferReply(interaction: Interaction | ModalSubmitInteraction) {
+export function deferReply(interaction: Interaction | ButtonInteraction | ModalSubmitInteraction) {
   if (interaction.deferred) return
   if (interaction.replied) return
   return interaction.deferReply()
@@ -95,7 +95,7 @@ export function deferReply(interaction: Interaction | ModalSubmitInteraction) {
 export function formatFieldHeading(heading: string): EmbedField {
   return {
     name: ZERO_WIDTH_SPACE_CHAR,
-    value: truncate(underscore(bold(heading)), EmbedLimits.MaximumFieldValueLength),
+    value: truncate(bold(heading.toUpperCase()), EmbedLimits.MaximumFieldValueLength),
     inline: false,
   }
 }
