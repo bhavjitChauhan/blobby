@@ -27,6 +27,7 @@
     "discord-api-types": "0.33",
     "discord.js": "13",
     "dotenv-cra": "^3.0.2",
+    "gray-matter": "^4.0.3",
     "ka-api": "github:bhavjitChauhan/ka-api",
     "mongodb": "4.10",
     "puppeteer": "16",

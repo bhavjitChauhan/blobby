@@ -10,7 +10,7 @@ import { userGet } from '../../lib/responses/userGet'
 import { ErrorMessages } from '../../lib/constants'
 
 @ApplyOptions<Subcommand.Options>({
-  description: 'Get info about a Khan Academy user',
+  description: 'Get topics about a Khan Academy user',
   preconditions: ['UserRateLimit'],
   subcommands: [
     {
@@ -35,7 +35,7 @@ export class UserCommand extends Subcommand {
           .addSubcommand((subcommand) =>
             subcommand //
               .setName('get')
-              .setDescription('Get general info about a user')
+              .setDescription('Get general topics about a user')
               .addStringOption((option) =>
                 option //
                   .setName('user')

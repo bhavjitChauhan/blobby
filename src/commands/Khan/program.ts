@@ -8,7 +8,7 @@ import { programGet } from '../../lib/responses/programGet'
 import { ErrorMessages } from '../../lib/constants'
 
 @ApplyOptions<Subcommand.Options>({
-  description: 'Get info about a Khan Academy program',
+  description: 'Get topics about a Khan Academy program',
   preconditions: ['UserRateLimit'],
   subcommands: [
     {
@@ -37,7 +37,7 @@ export class UserCommand extends Subcommand {
           .addSubcommand((subcommand) =>
             subcommand //
               .setName('get')
-              .setDescription('Get general info about a program')
+              .setDescription('Get general topics about a program')
               .addStringOption((option) =>
                 option //
                   .setName('program')
