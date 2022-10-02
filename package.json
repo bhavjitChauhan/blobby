@@ -24,7 +24,7 @@
     "@skyra/gifenc": "^1.0.0",
     "canvas": "^2.10.1",
     "colorette": "^2.0.19",
-    "discord-api-types": "0.33",
+    "discord-api-types": "0.37",
     "discord.js": "13",
     "dotenv-cra": "^3.0.2",
     "gray-matter": "^4.0.3",
