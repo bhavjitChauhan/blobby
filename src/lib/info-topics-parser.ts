@@ -25,4 +25,10 @@ interface InfoTopicData {
   title: string
   keywords: string[]
   content: string
+  resources?: InfoTopicResource[]
+}
+
+interface InfoTopicResource {
+  name: string
+  url: string
 }
