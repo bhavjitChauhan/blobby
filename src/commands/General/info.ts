@@ -61,7 +61,7 @@ export class UserCommand extends Command {
 
     const topic = topics.find((topic) => topic.data.title === title) as InfoTopic,
       data = topic.data
-    let content = data.content
+    let content = topic.content
     content = content.replace(/\[(.+?)]\((.+?)\)/g, (_match, content, url) => hyperlinkSilent(content, url)).trim()
     if (data.resources) {
       content += `\n\n${italic('Learn more:')}`

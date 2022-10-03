@@ -24,7 +24,6 @@ export interface InfoTopic {
 interface InfoTopicData {
   title: string
   keywords: string[]
-  content: string
   resources?: InfoTopicResource[]
 }
 
