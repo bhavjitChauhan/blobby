@@ -10,9 +10,24 @@ In the PJS environment, code is transformed such that any object created in a ty
 
 Throughout KA's history, there have arisen several ways to deal with the problem. Aside from creating and using complex object pools that shift the burden onto the programmer, the following are methods of restoring "expected" behavior back to `new`
 
-1. Object.create (Commonly attributed to ??? (Bob Lyon and KWC?))
+1. Using Object.create (Commonly attributed to ([Bob Lyon](https://www.khanacademy.org/profile/kaid_1116520053705160540512971/projects) and [KWC](https://www.khanacademy.org/profile/kaid_1116520053705160540512971/projects))?)
     ```js
     (function NewFix () {
+
+        // The original doc comment by KWC
+        /**
+         * This function constructs an
+         * instance of its binding.
+         *
+         * @created_by MKaelin368 (KWC) (c) 2017
+         */
+
+        // The original doc comment by Bob Lyon
+        /*
+         * Give every object a "new" method that works around
+         * the Khan Academy leak.
+         */
+
         this.Function.prototype.new = function () {
             var obj = Object.create(this.prototype);
             this.apply(obj, arguments);
@@ -29,7 +44,7 @@ Throughout KA's history, there have arisen several ways to deal with the problem
     var bar = Foo.new();
     ```
 
-2. Reflection (Commonly attributed to Vexcess)
+2. Using reflection (Commonly attributed to Vexcess (profile not available))
     ```js
     (function NewFix () {
         var Reflect = this.Reflect;
