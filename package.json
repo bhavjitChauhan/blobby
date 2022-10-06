@@ -30,7 +30,7 @@
     "gray-matter": "^4.0.3",
     "ka-api": "github:bhavjitChauhan/ka-api",
     "mongodb": "4.10",
-    "puppeteer": "16",
+    "puppeteer": "18",
     "reflect-metadata": "^0.1.13"
   },
   "devDependencies": {
