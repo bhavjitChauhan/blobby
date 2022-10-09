@@ -1,6 +1,8 @@
 import { readdirSync, readFileSync } from 'fs'
 import matter from 'gray-matter'
 import path from 'path'
+import { MessageLimits } from '@sapphire/discord-utilities'
+import { client } from '../index'
 
 export function parseInfoTopics(dirname: string) {
   const files = readdirSync(dirname)
@@ -10,6 +12,7 @@ export function parseInfoTopics(dirname: string) {
     const topic = matter(content)
     if (!topic.data.title) throw new Error(`Topic ${file} is missing a title`)
     if (!topic.data.keywords) throw new Error(`Topic ${file} is missing keywords`)
+    if (topic.content.length > MessageLimits.MaximumLength) client.logger.warn(`Topic ${topic.data.title} content is too long`)
 
     return topic
   })

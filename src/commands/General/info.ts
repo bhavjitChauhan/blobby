@@ -1,13 +1,14 @@
 import { ApplyOptions } from '@sapphire/decorators'
 import { Command } from '@sapphire/framework'
 import type { ApplicationCommandOptionChoiceData } from 'discord.js'
-import { AutoCompleteLimits } from '@sapphire/discord-utilities'
+import { AutoCompleteLimits, MessageLimits } from '@sapphire/discord-utilities'
 import { italic, userMention } from '@discordjs/builders'
 import config from '../../config'
 import { InfoTopic, parseInfoTopics } from '../../lib/info-topics-parser'
 import { BULLET_CHAR, rootDir } from '../../lib/constants'
 import path from 'path'
 import { hyperlinkSilent } from '../../lib/utils/discord'
+import { truncate } from '../../lib/utils/general'
 
 const topics = parseInfoTopics(path.join(rootDir, 'data', 'topics'))
 
@@ -64,9 +65,19 @@ export class UserCommand extends Command {
     let content = topic.content
     content = content.replace(/\[(.+?)]\((.+?)\)/g, (_match, content, url) => hyperlinkSilent(content, url)).trim()
     if (data.resources) {
-      content += `\n\n${italic('Learn more:')}`
+      const learnMoreLine = `\n\n${italic('Learn more:')}`
+      if (content.length + learnMoreLine.length >= MessageLimits.MaximumLength) {
+        this.container.logger.warn(`Topic ${title} content was too long to add any resources`)
+        return
+      }
+      content += learnMoreLine
       for (const resource of data.resources) {
-        content += `\n${BULLET_CHAR} ${hyperlinkSilent(resource.name, resource.url)}`
+        const resourceLine = `\n${BULLET_CHAR} ${hyperlinkSilent(resource.name, resource.url)}`
+        if (content.length + resourceLine.length >= MessageLimits.MaximumLength) {
+          this.container.logger.warn(`Topic ${title} content was too long to add resources after ${resource.name}`)
+          break
+        }
+        content += resourceLine
       }
     }
     if (!content)
@@ -74,6 +85,11 @@ export class UserCommand extends Command {
         content: `Sorry, I don't know anything about that topic yet. If you want to share what you know let ${userMention(config.support)} know.`,
         ephemeral: true,
       })
+
+    if (content.length > MessageLimits.MaximumLength) {
+      this.container.logger.warn(`Topic ${title} content was too long to send without truncating`)
+      content = truncate(content, MessageLimits.MaximumLength, '\n' + italic('Message was too long...'))
+    }
 
     return interaction.reply(`${mention ? userMention(mention.id) + '\n' : ''}${content}`)
   }

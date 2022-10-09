@@ -1,7 +1,6 @@
 ---
 title: ES6+
 keywords:
-  - ES6
   - ES6+
   - ESNext
 ---
