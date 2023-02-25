@@ -8,9 +8,9 @@ import { EmbedLimits } from '@sapphire/discord-utilities'
 import { truncate, within } from '../utils/general'
 import { bold, inlineCode, time } from '@discordjs/builders'
 import { Time } from '@sapphire/time-utilities'
-import { discussion, programs } from 'ka-api'
-import { cookies } from '../khan-cookies'
+import { khanClient } from '../khan-cookies'
 import config from '../../config'
+import type { Question, TipsAndThanks } from '@bhavjit/khan-api'
 
 export async function programGet(interaction: Subcommand.ChatInputInteraction, program: string) {
   await deferReply(interaction)
@@ -38,148 +38,183 @@ export async function programGet(interaction: Subcommand.ChatInputInteraction, p
     text: [embed.footer!.text, formatStopwatch(stopwatch)].join(BULLET_SEPARATOR),
     iconURL: embed.footer!.iconURL,
   })
-  await interaction.editReply({
-    embeds: [embed],
-    components: createComponents(data as ScratchpadData),
-  })
+  await interaction
+    .editReply({
+      embeds: [embed],
+      components: createComponents(data as ScratchpadData),
+    })
+    .catch((err) => console.error(err))
 }
 
 async function getScratchpadData(id: number) {
-  const scratchpadData = await Promise.all([
-    programs.showScratchpad(id),
-    discussion.feedbackQuery(cookies, id, 'QUESTION', 1, config.program.discussionLimit),
-    discussion.feedbackQuery(cookies, id, 'COMMENT', 1, config.program.discussionLimit),
-  ]).catch((reason) => {
-    if (reason.response?.status === 404) return null
-    else throw reason
+  const program = await khanClient.getProgram(id).catch((err) => {
+    console.error(err)
+    return null
   })
+  if (program)
+    await program.author
+      ?.get()
+      .then((author) => author?.getAvatar())
+      .catch((err) => console.log(err))
 
-  if (scratchpadData === null) return null
+  let questions: Question[] = []
+  const questionsGenerator = khanClient.getProgramQuestions(id)
+  while (questions.length < config.program.discussionLimit) {
+    const { done, value } = await questionsGenerator.next().catch((err) => {
+      console.error(err)
+      return { done: true, value: null }
+    })
+    if (!value) break
+    questions = [...questions, ...value]
+    if (done) break
+  }
 
-  const [scratchpad, questions, comments] = scratchpadData
+  let comments: TipsAndThanks[] = []
+  const commentsGenerator = khanClient.getProgramTipsAndThanks(id)
+  while (comments.length < config.program.discussionLimit) {
+    const { done, value } = await commentsGenerator.next().catch((err) => {
+      console.error(err)
+      return { done: true, value: null }
+    })
+    if (!value) break
+    comments = [...comments, ...value]
+    if (done) break
+  }
 
-  if (typeof scratchpad === 'string' || typeof questions.data.feedback === null || typeof comments.data.feedback === null) return null
+  if (program === null) return null
 
   return {
-    scratchpad,
+    scratchpad: program,
     questions,
     comments,
   }
 }
 
 function createEmbed(scratchpadData: ScratchpadData) {
-  const scratchpad = scratchpadData.scratchpad.scratchpad,
-    questions = scratchpadData.questions.data.feedback!.feedback,
-    questionsComplete = scratchpadData.questions.data.feedback?.isComplete,
-    comments = scratchpadData.comments.data.feedback!.feedback,
-    commentsComplete = scratchpadData.comments.data.feedback?.isComplete,
+  const scratchpad = scratchpadData.scratchpad,
+    questions = scratchpadData.questions,
+    questionsComplete = questions.length >= config.program.discussionLimit,
+    comments = scratchpadData.comments,
+    commentsComplete = comments.length >= config.program.discussionLimit,
     tags = [],
-    created = new Date(scratchpad.created),
-    updated = new Date(scratchpad.date)
+    created = scratchpad.created ? new Date(scratchpad.created) : null,
+    updated = scratchpad.updated ? new Date(scratchpad.updated) : null
 
-  if (scratchpad.isChallenge) tags.push('🎯 Challenge')
-  if (scratchpad.isPublished) tags.push('🏆 Contest')
-  if (scratchpad.hideFromHotlist) tags.push('🙈 Hidden')
-  if (scratchpad.flags.length > 0) tags.push(`🚩 Flagged ${scratchpad.flags.length}`)
-  if (scratchpad.byChild) tags.push('👶 Child Program')
-  if (scratchpad.originScratchpadId !== null) tags.push(`🖨 Spin-Off (${Math.floor(scratchpad.originSimilarity * 100)}%)`)
+  if (scratchpad.hidden) tags.push('🙈 Hidden')
+  if (scratchpad.author?.child) tags.push('👶 Child Program')
+  if (scratchpad.origin) tags.push('🖨 Spin-Off')
 
   const embed = new MessageEmbed()
     .setColor('GREEN')
     .setAuthor({
       name: displayNamePrimary(
-        scratchpadData.scratchpad.creatorProfile.nickname,
-        scratchpadData.scratchpad.creatorProfile.username,
-        scratchpadData.scratchpad.creatorProfile.kaid,
+        scratchpadData.scratchpad.author?.nickname,
+        scratchpadData.scratchpad.author?.username,
+        scratchpadData.scratchpad.author?.kaid ?? 'Unknown',
         EmbedLimits.MaximumAuthorNameLength
       ),
-      url: profileURL(scratchpadData.scratchpad.creatorProfile.username, scratchpadData.scratchpad.creatorProfile.kaid),
-      iconURL: avatarURL(scratchpadData.scratchpad.creatorProfile.avatarSrc),
+      url: scratchpadData.scratchpad.author?.kaid
+        ? profileURL(scratchpadData.scratchpad.author?.username, scratchpadData.scratchpad.author?.kaid)
+        : '',
+      iconURL: avatarURL(scratchpadData.scratchpad.author?.avatar ?? 'https://www.khanacademy.org/images/avatars/blobby-green.png'),
     })
     .setTitle(scratchpad.title ? truncate(scratchpad.title, EmbedLimits.MaximumTitleLength) : 'Untitled')
-    .setURL(scratchpad.url)
-    .setImage(scratchpad.imageUrl)
+    .setURL(scratchpad.url ?? '')
+    .setImage(scratchpad.thumbnailUrl ?? '')
     .addFields(
       formatFieldHeading('Program'),
       {
         name: 'Type',
-        value: AcceptedRunEnvironments.includes(scratchpad.userAuthoredContentType)
-          ? RunEnvironmentTitles[scratchpad.userAuthoredContentType as RunEnvironments]
-          : inlineCode(scratchpad.userAuthoredContentType ?? 'null'),
+        value: AcceptedRunEnvironments.includes(scratchpad.rawData?.userAuthoredContentType ?? '')
+          ? RunEnvironmentTitles[scratchpad.rawData?.userAuthoredContentType as RunEnvironments]
+          : inlineCode(scratchpad.rawData?.userAuthoredContentType ?? 'null'),
         inline: true,
       },
       {
         name: 'Votes',
-        value: scratchpad.sumVotesIncremented.toLocaleString(),
+        value: (scratchpad.votes ?? 0).toLocaleString(),
         inline: true,
       },
       {
         name: 'Spin-Offs',
-        value: scratchpad.spinoffCount.toLocaleString(),
+        value: (scratchpad.spinOffCount ?? 0).toLocaleString(),
         inline: true,
       },
       {
         name: 'Created',
-        value: within(created.getTime(), updated.getTime(), Time.Day, Time.Minute) ? time(created) : time(created, 'D'),
+        value: created ? (within(created.getTime(), updated?.getTime() ?? 0, Time.Day, Time.Minute) ? time(created) : time(created, 'D')) : 'Unknown',
         inline: true,
       },
       {
         name: 'Updated',
-        value: within(created.getTime(), updated.getTime(), Time.Minute)
-          ? 'Never'
-          : within(created.getTime(), updated.getTime(), Time.Day)
-          ? time(updated)
-          : time(updated, 'D'),
+        value:
+          created && updated
+            ? within(created.getTime(), updated.getTime(), Time.Minute)
+              ? 'Never'
+              : within(created.getTime(), updated.getTime(), Time.Day)
+              ? time(updated)
+              : time(updated, 'D')
+            : 'Never',
         inline: true,
       },
-      formatFieldHeading('Discussion'),
-      {
-        name: 'Questions',
-        value: questions.length.toLocaleString() + (!questionsComplete ? '+' : ''),
-        inline: true,
-      },
-      {
-        name: 'Question Votes',
-        value: questions.reduce((acc, { sumVotesIncremented }) => acc + sumVotesIncremented, 0).toLocaleString() + (!questionsComplete ? '+' : ''),
-        inline: true,
-      },
-      {
-        name: 'Question Replies',
-        value: questions.reduce((acc, { replyCount }) => acc + replyCount, 0).toLocaleString() + (!questionsComplete ? '+' : ''),
-        inline: true,
-      },
-      {
-        name: 'Comments',
-        value: comments.length.toLocaleString() + (!commentsComplete ? '+' : ''),
-        inline: true,
-      },
-      {
-        name: 'Comment Votes',
-        value: comments.reduce((acc, { sumVotesIncremented }) => acc + sumVotesIncremented, 0).toLocaleString() + (!commentsComplete ? '+' : ''),
-        inline: true,
-      },
-      {
-        name: 'Comment Replies',
-        value: comments.reduce((acc, { replyCount }) => acc + replyCount, 0).toLocaleString() + (!commentsComplete ? '+' : ''),
-        inline: true,
-      }
+      ...(questions || comments ? [formatFieldHeading('Discussion')] : []),
+      ...(questions
+        ? [
+            {
+              name: 'Questions',
+              value: questions.length.toLocaleString() + (!questionsComplete ? '+' : ''),
+              inline: true,
+            },
+            {
+              name: 'Question Votes',
+              value: questions.reduce((acc, { votes }) => (votes ? acc + votes : 0), 0).toLocaleString() + (!questionsComplete ? '+' : ''),
+              inline: true,
+            },
+            {
+              name: 'Question Replies',
+              value:
+                questions.reduce((acc, { replyCount }) => (replyCount ? acc + replyCount : 0), 0).toLocaleString() + (!questionsComplete ? '+' : ''),
+              inline: true,
+            },
+          ]
+        : []),
+      ...(comments
+        ? [
+            {
+              name: 'Comments',
+              value: comments.length.toLocaleString() + (!commentsComplete ? '+' : ''),
+              inline: true,
+            },
+            {
+              name: 'Comment Votes',
+              value: comments.reduce((acc, { votes }) => (votes ? acc + votes : 0), 0).toLocaleString() + (!commentsComplete ? '+' : ''),
+              inline: true,
+            },
+            {
+              name: 'Comment Replies',
+              value:
+                comments.reduce((acc, { replyCount }) => (replyCount ? acc + replyCount : 0), 0).toLocaleString() + (!commentsComplete ? '+' : ''),
+              inline: true,
+            },
+          ]
+        : [])
     )
     .setFooter({
-      text: displayNameFooter(scratchpadData.scratchpad.creatorProfile.username, scratchpadData.scratchpad.creatorProfile.kaid),
-      iconURL: avatarURL(scratchpadData.scratchpad.creatorProfile.avatarSrc),
+      text: displayNameFooter(scratchpadData.scratchpad.author?.username, scratchpadData.scratchpad.author?.kaid ?? 'Unknown'),
+      iconURL: avatarURL(scratchpadData.scratchpad.author?.avatar ?? 'https://www.khanacademy.org/images/avatars/blobby-green.png'),
     })
 
   if (tags.length > 0) embed.setDescription(tags.map((tag) => bold(tag)).join(', '))
-  if (scratchpad.originScratchpadId !== null) {
+  if (scratchpad.origin) {
     embed.fields.splice(
       embed.fields.findIndex((field) => field.name === 'Updated'),
       0,
       {
         name: 'Original',
         value: truncateScratchpadHyperlink(
-          scratchpadData.scratchpad.originScratchpad!.translatedTitle ?? 'Untitled',
-          scratchpadData.scratchpad.originScratchpad!.slug,
-          scratchpadData.scratchpad.originScratchpad!.id,
+          scratchpadData.scratchpad.origin!.title ?? 'Untitled',
+          scratchpadData.scratchpad.origin!.rawData?.url?.split('/')[2] ?? '',
+          scratchpadData.scratchpad.origin?.id ?? 0,
           EmbedLimits.MaximumFieldValueLength
         ),
         inline: true,
@@ -201,15 +236,15 @@ function createEmbed(scratchpadData: ScratchpadData) {
 function createComponents(scratchpadData: ScratchpadData) {
   const components = [
     new MessageButton() //
-      .setCustomId(`run-pjs-${scratchpadData.scratchpad.scratchpad.id}`)
+      .setCustomId(`run-pjs-${scratchpadData.scratchpad.id}`)
       .setStyle('SUCCESS')
       .setLabel('Run'),
     new MessageButton() //
-      .setCustomId(`user-get-${scratchpadData.scratchpad.creatorProfile.kaid}`)
+      .setCustomId(`user-get-${scratchpadData.scratchpad.author?.kaid}`)
       .setStyle('PRIMARY')
       .setLabel('User'),
     new MessageButton() //
-      .setCustomId(`program-code-${scratchpadData.scratchpad.scratchpad.id}`)
+      .setCustomId(`program-code-${scratchpadData.scratchpad.id}`)
       .setStyle('PRIMARY')
       .setLabel('Code'),
     new MessageButton() //
@@ -217,18 +252,18 @@ function createComponents(scratchpadData: ScratchpadData) {
       .setLabel('Program')
       .setStyle('LINK')
       .setURL(
-        scratchpadData.scratchpad.scratchpad.url.length <= 512
-          ? scratchpadData.scratchpad.scratchpad.url
-          : `https://www.khanacademy.org/computer-programming/-/${scratchpadData.scratchpad.scratchpad.id}`
+        scratchpadData.scratchpad.url ?? 0 <= 512
+          ? scratchpadData.scratchpad.url ?? ''
+          : `https://www.khanacademy.org/computer-programming/-/${scratchpadData.scratchpad.id}`
       ),
   ]
-  if (new Date(scratchpadData.scratchpad.scratchpad.created).getTime() > KHANALYTICS_START)
+  if (scratchpadData.scratchpad.created && new Date(scratchpadData.scratchpad.created).getTime() > KHANALYTICS_START)
     components.push(
       new MessageButton() //
         .setEmoji('📊')
         .setLabel('Khanalytics')
         .setStyle('LINK')
-        .setURL(`https://khanalytics.herokuapp.com/program/${scratchpadData.scratchpad.scratchpad.id}?ref=discord`)
+        .setURL(`https://khanalytics.herokuapp.com/program/${scratchpadData.scratchpad.id}?ref=discord`)
     )
   return [new MessageActionRow().addComponents(components)]
 }

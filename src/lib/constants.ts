@@ -1,4 +1,5 @@
 import { join } from 'path'
+import { Program, ProgramType } from '@bhavjit/khan-api'
 
 export const rootDir = join(__dirname, '..', '..')
 export const srcDir = join(rootDir, 'src')
@@ -31,6 +32,13 @@ export const RunEnvironmentOptionKeys: Record<RunEnvironments, string[]> = {
 }
 
 export const AcceptedRunEnvironments = ['pjs', 'webpage', 'sql']
+
+export const RunEnvironmentKhanApiMap: Record<ProgramType, RunEnvironments | null> = {
+  [Program.Type.ProcessingJS]: RunEnvironments.PJS,
+  [Program.Type.HTML]: RunEnvironments.Webpage,
+  [Program.Type.SQL]: RunEnvironments.SQL,
+  [Program.Type.Other]: null,
+}
 
 export const enum ErrorMessages {
   InappropriateUser = "I can't search for that user",

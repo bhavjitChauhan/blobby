@@ -1,11 +1,11 @@
 import { ApplyOptions } from '@sapphire/decorators'
 import { Subcommand } from '@sapphire/plugin-subcommands'
-import { programs } from 'ka-api'
 import { deferReply } from '../../lib/utils/discord'
 import { parseProgram } from '../../lib/utils/khan'
 import { programCode } from '../../lib/responses/programCode'
 import { programGet } from '../../lib/responses/programGet'
 import { ErrorMessages } from '../../lib/constants'
+import { khanClient } from '../../lib/khan-cookies'
 
 @ApplyOptions<Subcommand.Options>({
   description: 'Get topics about a Khan Academy program',
@@ -72,13 +72,16 @@ export class UserCommand extends Subcommand {
   }
 
   private async getScratchpadThumbnailURL(id: number) {
-    const data = await programs.getProgramJSON(id, { imageUrl: 1 }).catch((reason) => {
-      if (reason.response?.status === 404) return null
-      else throw reason
-    })
+    let data
+    try {
+      data = await khanClient.getProgram(id)
+    } catch (err) {
+      if (err instanceof Error && err.message === 'Not Found') data = null
+      else throw err
+    }
     if (data === null) return null
 
-    return data.imageUrl
+    return data.thumbnailUrl
   }
 
   public async chatInputGet(interaction: Subcommand.ChatInputInteraction) {

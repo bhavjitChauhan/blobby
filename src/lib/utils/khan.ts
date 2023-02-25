@@ -2,17 +2,17 @@ import { bold, hyperlink } from '@discordjs/builders'
 import { EmbedLimits, HttpUrlRegex } from '@sapphire/discord-utilities'
 import { BULLET_SEPARATOR } from '../constants'
 import { isIntegerString, parseKeyPath, truncate } from './general'
-import { utils } from 'ka-api'
+import { ProgramIDRegex, ProgramURLRegex } from '@bhavjit/khan-api'
 
 export function parseProgram(program: string) {
   let id: number
   if (isIntegerString(program!)) {
     id = parseInt(program!, 10)
   } else {
-    if (utils.isValidProgramURL(program!)) id = utils.extractProgramID(program!)
+    if (ProgramURLRegex.test(program)) id = parseInt(program.match(ProgramURLRegex)![1], 10)
     else return null
   }
-  if (!utils.isValidProgramID(id)) return null
+  if (!ProgramIDRegex.test(id.toString())) return null
   return id
 }
 

@@ -1,9 +1,8 @@
 import { ApplyOptions } from '@sapphire/decorators'
 import { Command } from '@sapphire/framework'
 import { Message, MessageEmbed } from 'discord.js'
-import { utils } from 'ka-api'
-import { cookies } from '../../lib/khan-cookies'
 import { getLatency } from '../../lib/mongodb/mongodb'
+import { ping } from '../../lib/utils/general'
 
 @ApplyOptions<Command.Options>({
   description: "Get the bot's latency",
@@ -24,7 +23,7 @@ export class UserCommand extends Command {
     const message = await interaction.fetchReply()
 
     const createdTime = message instanceof Message ? message.createdTimestamp : Date.parse(message.timestamp)
-    const khanLatency = await utils.getLatency(cookies)
+    const khanLatency = await ping('https://www.khanacademy.org/_fastly/flags')
     const mongoLatency = await getLatency()
     // const mongoLatencyStats = await latencyStats().catch((err) => {
     //   this.container.logger.error(err)

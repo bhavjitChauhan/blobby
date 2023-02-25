@@ -1,11 +1,12 @@
 import { InteractionHandler, InteractionHandlerTypes, PieceContext } from '@sapphire/framework'
 import type { ButtonInteraction } from 'discord.js'
-import { programs } from 'ka-api'
 import { AcceptedRunEnvironments, ErrorMessages, RunEnvironments } from '../../lib/constants'
 import { runPJS } from '../../lib/responses/runPJS'
 import { runWebpage } from '../../lib/responses/runWebpage'
 import { runSQL } from '../../lib/responses/runSQL'
 import { deferReply } from '../../lib/utils/discord'
+import { khanClient } from '../../lib/khan-cookies'
+import { isProgramID } from '@bhavjit/khan-api'
 
 export class ButtonHandler extends InteractionHandler {
   public constructor(ctx: PieceContext, options: InteractionHandler.Options) {
@@ -26,16 +27,24 @@ export class ButtonHandler extends InteractionHandler {
 
     const { environment, id } = parsedData
 
-    const data = await programs.getProgramJSON(id, { width: 1, height: 1, revision: { code: 1 } }).catch((reason) => {
-      if (reason.response?.status === 404) return null
-      else throw reason
-    })
-    if (!data) {
+    if (!isProgramID(id)) {
+      await interaction.reply(ErrorMessages.InvalidProgram)
+      return
+    }
+
+    let data
+    try {
+      data = await khanClient.getProgram(id)
+    } catch (err) {
+      if (err instanceof Error && err.message === 'Program not found') data = null
+      else throw err
+    }
+    if (!data || !data.code) {
       await interaction.reply(ErrorMessages.ProgramNotFound)
       return
     }
 
-    const code = data.revision.code,
+    const code = data.code,
       options = { width: data.width, height: data.height }
 
     switch (environment as RunEnvironments) {

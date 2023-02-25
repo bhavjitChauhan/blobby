@@ -9,9 +9,9 @@ import type { RunOptionsSQL } from '../../lib/responses/runSQL'
 import { runSQL } from '../../lib/responses/runSQL'
 import { deferReply, extractFileType } from '../../lib/utils/discord'
 import { parseProgram } from '../../lib/utils/khan'
-import { programs } from 'ka-api'
 import config from '../../config'
-import { ErrorMessages, RunEnvironmentOptionKeys, RunEnvironments, RunEnvironmentTitles } from '../../lib/constants'
+import { ErrorMessages, RunEnvironmentKhanApiMap, RunEnvironmentOptionKeys, RunEnvironments, RunEnvironmentTitles } from '../../lib/constants'
+import { khanClient } from '../../lib/khan-cookies'
 
 @ApplyOptions<Subcommand.Options>({
   description: 'Run code on Khan Academy',
@@ -247,23 +247,28 @@ export class UserCommand extends Subcommand {
           return
         }
 
-        const data = await programs.getProgramJSON(id, { width: 1, height: 1, userAuthoredContentType: 1, revision: { code: 1 } }).catch((reason) => {
-          if (reason.response?.status === 404) return null
-          else throw reason
-        })
-        if (!data) {
-          await interaction.reply(ErrorMessages.ProgramNotFound)
+        let data
+        try {
+          data = await khanClient.getProgram(id)
+        } catch (err) {
+          if (err instanceof Error && err.message === 'Program not found') await interaction.reply(ErrorMessages.InvalidProgram)
+          else await interaction.reply(ErrorMessages.InvalidProgram)
           return
         }
 
-        if (data.userAuthoredContentType !== environment) {
+        if (!data.type || !data.code) {
+          await interaction.reply(ErrorMessages.InvalidProgram)
+          return
+        }
+        const mappedType = RunEnvironmentKhanApiMap[data.type]
+        if (mappedType !== environment) {
           await interaction.reply(this.#INVALID_PROGRAM_TYPE)
           return
         }
 
-        if (options.width === null) options.width = data.width
-        if (options.height === null) options.height = data.height
-        code = data.revision.code
+        if (options.width === null) options.width = data.width ?? config.run.width.default
+        if (options.height === null) options.height = data.height ?? config.run.height.default
+        code = data.code
       }
 
       await RunEnvironmentFunctions[environment](interaction, code, options)

@@ -1,9 +1,15 @@
+import config from '../../config'
+
 export function isIntegerString(str: string) {
   return /^\d+$/.test(str)
 }
 
 export function waitForTimeout(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+export function timeout<T>(promise: Promise<T>, ms: number = config.timeout) {
+  return Promise.race([promise, new Promise<null>((_, reject) => setTimeout(() => reject(null), ms))])
 }
 
 /**
@@ -78,6 +84,16 @@ export function unescapeHTML(str: string) {
         '&quot;': '"',
       }[tag] || tag)
   )
+}
+
+export async function ping(url: string) {
+  const start = performance.now()
+  try {
+    await fetch(url)
+  } catch (err) {
+    return null
+  }
+  return performance.now() - start
 }
 
 /**

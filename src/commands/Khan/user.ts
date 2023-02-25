@@ -1,13 +1,12 @@
 import { ApplyOptions } from '@sapphire/decorators'
 import { Subcommand } from '@sapphire/plugin-subcommands'
-import { profile, utils } from 'ka-api'
-import { cookies } from '../../lib/khan-cookies'
+import { khanClient } from '../../lib/khan-cookies'
 import { profanity } from '@2toad/profanity'
 import { ValidationError } from '../../lib/errors'
 import { deferReply } from '../../lib/utils/discord'
-import { avatarURL } from '../../lib/utils/khan'
 import { userGet } from '../../lib/responses/userGet'
 import { ErrorMessages } from '../../lib/constants'
+import { KaidRegex } from '@bhavjit/khan-api'
 
 @ApplyOptions<Subcommand.Options>({
   description: 'Get topics about a Khan Academy user',
@@ -62,18 +61,27 @@ export class UserCommand extends Subcommand {
     let user = interaction.options.getString('user', true) as string
     if (profanity.exists(user)) throw new ValidationError(ErrorMessages.InappropriateUser)
 
-    try {
-      utils.isValidKaid(user)
-    } catch {
-      const profileInfo = await profile.getProfileInfo(cookies, user)
-      if (profileInfo.data.user === null) throw new ValidationError(ErrorMessages.UserNotFound)
-      user = profileInfo.data.user.kaid
+    if (!KaidRegex.test(user)) {
+      let profileInfo
+      try {
+        profileInfo = await khanClient.getUser(user)
+      } catch (err) {
+        if (err instanceof Error && err.message === 'User not found') throw new ValidationError(ErrorMessages.UserNotFound)
+        else throw err
+      }
+      if (!profileInfo.kaid) throw new ValidationError(ErrorMessages.UserNotFound)
+      user = profileInfo.kaid
     }
 
-    const avatarData = await profile.avatarDataForProfile(cookies, user)
-    if (avatarData.data.user === null) throw new ValidationError(ErrorMessages.UserNotFound)
+    let avatarData
+    try {
+      avatarData = await khanClient.getAvatar(user, 'png')
+    } catch (err) {
+      if (err instanceof Error && err.message === 'User not found') throw new ValidationError(ErrorMessages.UserNotFound)
+      else throw err
+    }
 
-    return avatarURL(avatarData.data.user.avatar.imageSrc)
+    return avatarData
   }
 
   public async chatInputGet(interaction: Subcommand.ChatInputInteraction) {

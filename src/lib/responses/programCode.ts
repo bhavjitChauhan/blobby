@@ -1,11 +1,11 @@
 import { deferReply } from '../utils/discord'
 import { parseProgram } from '../utils/khan'
 import type { Subcommand } from '@sapphire/plugin-subcommands'
-import { AcceptedRunEnvironments, ErrorMessages, RunEnvironments } from '../constants'
-import { programs } from 'ka-api'
+import { ErrorMessages, RunEnvironmentKhanApiMap, RunEnvironments } from '../constants'
 import type { ButtonInteraction } from 'discord.js'
 import { truncate } from '../utils/general'
 import { AttachmentLimits } from '../utils/limits'
+import { khanClient } from '../khan-cookies'
 
 export async function programCode(interaction: Subcommand.ChatInputInteraction | ButtonInteraction, program: string) {
   await deferReply(interaction)
@@ -23,26 +23,35 @@ export async function programCode(interaction: Subcommand.ChatInputInteraction |
   }
 
   const { slug, type, code } = data
-  const extension = AcceptedRunEnvironments.includes(type) ? RunEnvironmentExtensions[type as RunEnvironments] : 'txt'
+  const extension = type ? RunEnvironmentExtensions[type] : 'txt'
 
   await interaction.editReply({
     files: [
-      { attachment: Buffer.from(code), name: `${truncate(slug, AttachmentLimits.MaximumFilenameLength - (extension.length + 1), '')}.${extension}` },
+      {
+        attachment: Buffer.from(code),
+        name: `${truncate(slug, AttachmentLimits.MaximumFilenameLength - (extension.length + 1), '')}.${extension}`,
+      },
     ],
   })
 }
 
 async function getScratchpadData(id: number) {
-  const data = await programs.getProgramJSON(id, { slug: 1, userAuthoredContentType: 1, revision: { code: 1 } }).catch((reason) => {
-    if (reason.response?.status === 404) return null
-    else throw reason
-  })
-  if (data === null) return null
+  let data
+  try {
+    data = await khanClient.getProgram(id)
+  } catch (err) {
+    if (err instanceof Error && err.message === 'Program not found') data = null
+    else throw err
+  }
+
+  if (data === null || !data.rawData || !data.rawData.url || !data.type || !data.code) return null
+
+  const mappedType = RunEnvironmentKhanApiMap[data.type]
 
   return {
-    slug: data.slug,
-    type: data.userAuthoredContentType,
-    code: data.revision.code,
+    slug: data.rawData.url.split('/')[2],
+    type: mappedType,
+    code: data.code,
   }
 }
 
