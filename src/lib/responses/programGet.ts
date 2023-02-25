@@ -3,7 +3,7 @@ import { Stopwatch } from '@sapphire/stopwatch'
 import { avatarURL, displayNameFooter, displayNamePrimary, parseProgram, profileURL, truncateScratchpadHyperlink } from '../utils/khan'
 import { AcceptedRunEnvironments, BULLET_SEPARATOR, ErrorMessages, KHANALYTICS_START, RunEnvironments, RunEnvironmentTitles } from '../constants'
 import type { Subcommand } from '@sapphire/plugin-subcommands'
-import { MessageActionRow, MessageButton, MessageEmbed } from 'discord.js'
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js'
 import { EmbedLimits } from '@sapphire/discord-utilities'
 import { truncate, within } from '../utils/general'
 import { bold, inlineCode, time } from '@discordjs/builders'
@@ -12,7 +12,7 @@ import { khanClient } from '../khan-cookies'
 import config from '../../config'
 import type { Question, TipsAndThanks } from '@bhavjit/khan-api'
 
-export async function programGet(interaction: Subcommand.ChatInputInteraction, program: string) {
+export async function programGet(interaction: Subcommand.ChatInputCommandInteraction, program: string) {
   await deferReply(interaction)
 
   const stopwatch = new Stopwatch()
@@ -35,8 +35,8 @@ export async function programGet(interaction: Subcommand.ChatInputInteraction, p
 
   const embed = createEmbed(data as ScratchpadData)
   embed.setFooter({
-    text: [embed.footer!.text, formatStopwatch(stopwatch)].join(BULLET_SEPARATOR),
-    iconURL: embed.footer!.iconURL,
+    text: [embed.data.footer!.text, formatStopwatch(stopwatch)].join(BULLET_SEPARATOR),
+    iconURL: embed.data.footer!.icon_url,
   })
   await interaction
     .editReply({
@@ -104,8 +104,8 @@ function createEmbed(scratchpadData: ScratchpadData) {
   if (scratchpad.author?.child) tags.push('👶 Child Program')
   if (scratchpad.origin) tags.push('🖨 Spin-Off')
 
-  const embed = new MessageEmbed()
-    .setColor('GREEN')
+  const embed = new EmbedBuilder()
+    .setColor('Green')
     .setAuthor({
       name: displayNamePrimary(
         scratchpadData.scratchpad.author?.nickname,
@@ -206,8 +206,8 @@ function createEmbed(scratchpadData: ScratchpadData) {
 
   if (tags.length > 0) embed.setDescription(tags.map((tag) => bold(tag)).join(', '))
   if (scratchpad.origin) {
-    embed.fields.splice(
-      embed.fields.findIndex((field) => field.name === 'Updated'),
+    embed.spliceFields(
+      embed.data.fields!.findIndex((field) => field.name === 'Updated'),
       0,
       {
         name: 'Original',
@@ -221,36 +221,39 @@ function createEmbed(scratchpadData: ScratchpadData) {
       }
     )
   }
-  if (!questionsComplete || !commentsComplete)
-    embed.fields.unshift(
+  if (!questionsComplete || !commentsComplete) {
+    const fields = [...embed.data.fields!]
+    fields.unshift(
       formatFieldWarning(
         `This program has too many ${
           !questionsComplete && !commentsComplete ? 'questions and comments' : !questionsComplete ? 'questions' : 'comments'
         } to load.`
       )
     )
+    embed.setFields(fields)
+  }
 
   return embed
 }
 
 function createComponents(scratchpadData: ScratchpadData) {
   const components = [
-    new MessageButton() //
+    new ButtonBuilder() //
       .setCustomId(`run-pjs-${scratchpadData.scratchpad.id}`)
-      .setStyle('SUCCESS')
+      .setStyle(ButtonStyle.Success)
       .setLabel('Run'),
-    new MessageButton() //
+    new ButtonBuilder() //
       .setCustomId(`user-get-${scratchpadData.scratchpad.author?.kaid}`)
-      .setStyle('PRIMARY')
+      .setStyle(ButtonStyle.Primary)
       .setLabel('User'),
-    new MessageButton() //
+    new ButtonBuilder() //
       .setCustomId(`program-code-${scratchpadData.scratchpad.id}`)
-      .setStyle('PRIMARY')
+      .setStyle(ButtonStyle.Primary)
       .setLabel('Code'),
-    new MessageButton() //
+    new ButtonBuilder() //
       .setEmoji('🖥')
       .setLabel('Program')
-      .setStyle('LINK')
+      .setStyle(ButtonStyle.Link)
       .setURL(
         scratchpadData.scratchpad.url ?? 0 <= 512
           ? scratchpadData.scratchpad.url ?? ''
@@ -259,13 +262,13 @@ function createComponents(scratchpadData: ScratchpadData) {
   ]
   if (scratchpadData.scratchpad.created && new Date(scratchpadData.scratchpad.created).getTime() > KHANALYTICS_START)
     components.push(
-      new MessageButton() //
+      new ButtonBuilder() //
         .setEmoji('📊')
         .setLabel('Khanalytics')
-        .setStyle('LINK')
+        .setStyle(ButtonStyle.Link)
         .setURL(`https://khanalytics.herokuapp.com/program/${scratchpadData.scratchpad.id}?ref=discord`)
     )
-  return [new MessageActionRow().addComponents(components)]
+  return [new ActionRowBuilder<ButtonBuilder>().addComponents(components)]
 }
 
 type ScratchpadData = NonNullable<Awaited<ReturnType<typeof getScratchpadData>>>

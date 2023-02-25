@@ -1,6 +1,6 @@
 import { ApplyOptions } from '@sapphire/decorators'
 import { Command } from '@sapphire/framework'
-import { Message, MessageEmbed } from 'discord.js'
+import { EmbedBuilder } from 'discord.js'
 import { getLatency } from '../../lib/mongodb/mongodb'
 import { ping } from '../../lib/utils/general'
 
@@ -19,10 +19,10 @@ export class UserCommand extends Command {
     )
   }
 
-  private async embeds(interaction: Command.ChatInputInteraction) {
+  private async embeds(interaction: Command.ChatInputCommandInteraction) {
     const message = await interaction.fetchReply()
 
-    const createdTime = message instanceof Message ? message.createdTimestamp : Date.parse(message.timestamp)
+    const createdTime = message.createdTimestamp
     const khanLatency = await ping('https://www.khanacademy.org/_fastly/flags')
     const mongoLatency = await getLatency()
     // const mongoLatencyStats = await latencyStats().catch((err) => {
@@ -30,8 +30,8 @@ export class UserCommand extends Command {
     //   return null
     // })
 
-    const embed = new MessageEmbed() //
-      .setColor(khanLatency && mongoLatency ? 'GREEN' : 'RED')
+    const embed = new EmbedBuilder() //
+      .setColor(khanLatency && mongoLatency ? 'Green' : 'Red')
       .setTitle('🏓 Pong!')
       .addFields(
         {
@@ -55,7 +55,7 @@ export class UserCommand extends Command {
     return [embed]
   }
 
-  public async chatInputRun(interaction: Command.ChatInputInteraction) {
+  public async chatInputRun(interaction: Command.ChatInputCommandInteraction) {
     await interaction.deferReply()
 
     return interaction.editReply({

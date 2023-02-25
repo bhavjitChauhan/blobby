@@ -57,7 +57,7 @@ export class UserCommand extends Subcommand {
     )
   }
 
-  private async getAvatarURL(interaction: Subcommand.ChatInputInteraction) {
+  private async getAvatarURL(interaction: Subcommand.ChatInputCommandInteraction) {
     let user = interaction.options.getString('user', true) as string
     if (profanity.exists(user)) throw new ValidationError(ErrorMessages.InappropriateUser)
 
@@ -84,13 +84,13 @@ export class UserCommand extends Subcommand {
     return avatarData
   }
 
-  public async chatInputGet(interaction: Subcommand.ChatInputInteraction) {
+  public async chatInputGet(interaction: Subcommand.ChatInputCommandInteraction) {
     const user = interaction.options.getString('user', true)
 
     await userGet(interaction, user)
   }
 
-  public async chatInputAvatar(interaction: Subcommand.ChatInputInteraction) {
+  public async chatInputAvatar(interaction: Subcommand.ChatInputCommandInteraction) {
     await deferReply(interaction)
 
     let avatarURL

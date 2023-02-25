@@ -1,6 +1,6 @@
 import { Subcommand } from '@sapphire/plugin-subcommands'
 import { ApplyOptions } from '@sapphire/decorators'
-import { MessageActionRow, Modal, type ModalActionRowComponent, TextInputComponent } from 'discord.js'
+import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js'
 import { clamp, serialize } from '../../lib/utils/general'
 import { RunOptionsPJS, runPJS } from '../../lib/responses/runPJS'
 import type { RunOptionsWebpage } from '../../lib/responses/runWebpage'
@@ -149,7 +149,7 @@ export class UserCommand extends Subcommand {
     )
   }
 
-  public async chatInputPJS(interaction: Subcommand.ChatInputInteraction) {
+  public async chatInputPJS(interaction: Subcommand.ChatInputCommandInteraction) {
     const options = {
       width: interaction.options.getInteger('width'),
       height: interaction.options.getInteger('height'),
@@ -174,7 +174,7 @@ export class UserCommand extends Subcommand {
     await this.chatInput(interaction, RunEnvironments.PJS, options as RunOptionsPJS)
   }
 
-  public async chatInputWebpage(interaction: Subcommand.ChatInputInteraction) {
+  public async chatInputWebpage(interaction: Subcommand.ChatInputCommandInteraction) {
     const options = {
       width: interaction.options.getInteger('width'),
       height: interaction.options.getInteger('height'),
@@ -190,7 +190,7 @@ export class UserCommand extends Subcommand {
     await this.chatInput(interaction, RunEnvironments.Webpage, options as RunOptionsWebpage)
   }
 
-  public async chatInputSQL(interaction: Subcommand.ChatInputInteraction) {
+  public async chatInputSQL(interaction: Subcommand.ChatInputCommandInteraction) {
     const options = {
       width: interaction.options.getInteger('width'),
       height: interaction.options.getInteger('height'),
@@ -214,7 +214,7 @@ export class UserCommand extends Subcommand {
   }
 
   private async chatInput(
-    interaction: Subcommand.ChatInputInteraction,
+    interaction: Subcommand.ChatInputCommandInteraction,
     environment: RunEnvironments,
     options: RunOptionsPJS | RunOptionsWebpage | RunOptionsSQL
   ) {
@@ -279,15 +279,15 @@ export class UserCommand extends Subcommand {
   }
 
   private createModal(environment: RunEnvironments, options: RunOptionsPJS | RunOptionsWebpage | RunOptionsSQL) {
-    return new Modal()
+    return new ModalBuilder()
       .setCustomId(`${environment}${serialize(options as unknown as Record<string, boolean | number>, RunEnvironmentOptionKeys[environment])}`)
       .setTitle(`${RunEnvironmentTitles[environment]} Input`)
       .setComponents(
-        new MessageActionRow<ModalActionRowComponent>().addComponents(
-          new TextInputComponent() //
+        new ActionRowBuilder<TextInputBuilder>().addComponents(
+          new TextInputBuilder() //
             .setCustomId('input')
             .setLabel(environment == RunEnvironments.Webpage ? 'HTML' : 'Code')
-            .setStyle('PARAGRAPH')
+            .setStyle(TextInputStyle.Paragraph)
         )
       )
   }

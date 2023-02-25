@@ -1,5 +1,5 @@
 import type { ModalSubmitInteraction } from 'discord.js'
-import { ButtonInteraction, MessageAttachment, MessageEmbed } from 'discord.js'
+import { ButtonInteraction, AttachmentBuilder, EmbedBuilder } from 'discord.js'
 import type { Subcommand } from '@sapphire/plugin-subcommands'
 import { isNullish } from '@sapphire/utilities'
 import { evaluate } from '../puppeteer'
@@ -9,7 +9,7 @@ import { RunEnvironments, RunEnvironmentTitles } from '../constants'
 import config from '../../config'
 
 export async function runWebpage(
-  interaction: Subcommand.ChatInputInteraction | ButtonInteraction | ModalSubmitInteraction,
+  interaction: Subcommand.ChatInputCommandInteraction | ButtonInteraction | ModalSubmitInteraction,
   code: string,
   partialOptions: Partial<RunOptionsWebpage>
 ) {
@@ -29,8 +29,8 @@ export async function runWebpage(
     data.buffer = await frameHandle.screenshot()
   })
 
-  const embed = new MessageEmbed()
-    .setColor(success ? 'GREEN' : 'RED')
+  const embed = new EmbedBuilder()
+    .setColor(success ? 'Green' : 'Red')
     .setTitle(`${RunEnvironmentTitles[RunEnvironments.Webpage]} Output`)
     .setFooter({ text: formatStopwatch(stopwatch) })
 
@@ -38,7 +38,7 @@ export async function runWebpage(
 
   let attachment = null
   if (success && Buffer.isBuffer(buffer)) {
-    attachment = new MessageAttachment(buffer, 'screenshot.png')
+    attachment = new AttachmentBuilder(buffer, { name: 'screenshot.png' })
     embed.setImage('attachment://screenshot.png')
   }
 

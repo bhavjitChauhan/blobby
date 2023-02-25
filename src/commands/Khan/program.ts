@@ -84,17 +84,17 @@ export class UserCommand extends Subcommand {
     return data.thumbnailUrl
   }
 
-  public async chatInputGet(interaction: Subcommand.ChatInputInteraction) {
+  public async chatInputGet(interaction: Subcommand.ChatInputCommandInteraction) {
     const program = interaction.options.getString('program', true)
     await programGet(interaction, program)
   }
 
-  public async chatInputCode(interaction: Subcommand.ChatInputInteraction) {
+  public async chatInputCode(interaction: Subcommand.ChatInputCommandInteraction) {
     const program = interaction.options.getString('program', true)
     await programCode(interaction, program)
   }
 
-  public async chatInputThumbnail(interaction: Subcommand.ChatInputInteraction) {
+  public async chatInputThumbnail(interaction: Subcommand.ChatInputCommandInteraction) {
     await deferReply(interaction)
 
     const program = interaction.options.getString('program', true)

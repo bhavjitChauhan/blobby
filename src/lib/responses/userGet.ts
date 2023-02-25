@@ -3,7 +3,7 @@ import { Stopwatch } from '@sapphire/stopwatch'
 import { BULLET_SEPARATOR, ErrorMessages } from '../constants'
 import { profanity } from '@2toad/profanity'
 import { khanClient } from '../khan-cookies'
-import { ButtonInteraction, MessageActionRow, MessageButton, MessageEmbed } from 'discord.js'
+import { ButtonInteraction, ActionRowBuilder, ButtonBuilder, EmbedBuilder, ButtonStyle } from 'discord.js'
 import { truncate } from '../utils/general'
 import { EmbedLimits } from '@sapphire/discord-utilities'
 import { avatarURL, displayNameFooter, profileURL } from '../utils/khan'
@@ -11,7 +11,7 @@ import { time } from '@discordjs/builders'
 import type { Subcommand } from '@sapphire/plugin-subcommands'
 import type { User } from '@bhavjit/khan-api'
 
-export async function userGet(interaction: Subcommand.ChatInputInteraction | ButtonInteraction, identifier: string) {
+export async function userGet(interaction: Subcommand.ChatInputCommandInteraction | ButtonInteraction, identifier: string) {
   await deferReply(interaction)
 
   const stopwatch = new Stopwatch()
@@ -29,8 +29,8 @@ export async function userGet(interaction: Subcommand.ChatInputInteraction | But
 
   const embed = createEmbed(user)
   embed.setFooter({
-    text: [embed.footer!.text, formatStopwatch(stopwatch)].join(BULLET_SEPARATOR),
-    iconURL: embed.footer!.iconURL,
+    text: [embed.data.footer!.text, formatStopwatch(stopwatch)].join(BULLET_SEPARATOR),
+    iconURL: embed.data.footer!.icon_url,
   })
   await interaction.editReply({
     embeds: [embed],
@@ -52,12 +52,11 @@ async function getProfileData(identifier: string) {
 }
 
 function createEmbed(user: User) {
-  const embed = new MessageEmbed()
-    .setColor('GREEN')
+  const embed = new EmbedBuilder()
+    .setColor('Green')
     .setTitle(truncate(user.nickname ?? user.username ?? user.kaid ?? 'Unknown user', EmbedLimits.MaximumTitleLength))
     .setURL(profileURL(user.username, user.kaid ?? ''))
     .setThumbnail(avatarURL(user.avatar ?? 'https://www.khanacademy.org/images/avatars/svg/blobby-green.svg'))
-    .setDescription(truncate(user.bio ?? 'No bio', EmbedLimits.MaximumDescriptionLength))
     .addFields(
       formatFieldHeading('Programs'),
       {
@@ -117,8 +116,11 @@ function createEmbed(user: User) {
       iconURL: avatarURL(user.avatar ?? 'https://www.khanacademy.org/images/avatars/svg/blobby-green.svg'),
     })
 
+  if (user.bio) embed.setDescription(truncate(user.bio, EmbedLimits.MaximumDescriptionLength))
+
+  const fields = [...embed.data.fields!]
   if (user.joined && user.badgeCounts) {
-    embed.fields.unshift(
+    fields.unshift(
       formatFieldHeading('Account'),
       {
         name: 'Points',
@@ -143,18 +145,19 @@ function createEmbed(user: User) {
         inline: true,
       }
     )
-  } else embed.fields.unshift(formatFieldWarning('This user has chosen to keep some of their information private.'))
+  } else fields.unshift(formatFieldWarning('This user has chosen to keep some of their information private.'))
+  embed.setFields(fields)
 
   return embed
 }
 
 function createComponents(user: User) {
   return [
-    new MessageActionRow().addComponents(
-      new MessageButton() //
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder() //
         .setEmoji('👥')
         .setLabel('Profile')
-        .setStyle('LINK')
+        .setStyle(ButtonStyle.Link)
         .setURL(profileURL(user.username, user.kaid ?? ''))
     ),
   ]

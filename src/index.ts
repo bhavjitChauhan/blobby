@@ -1,14 +1,15 @@
 import './lib/setup'
 import { LogLevel, SapphireClient } from '@sapphire/framework'
 import { login } from './lib/khan-cookies'
+import { Partials } from 'discord.js'
 
 export const client = new SapphireClient({
   logger: {
     level: LogLevel.Debug,
   },
   shards: 'auto',
-  intents: ['GUILDS'],
-  partials: ['CHANNEL'],
+  intents: ['Guilds'],
+  partials: [Partials.Channel],
   loadMessageCommandListeners: true,
 })
 

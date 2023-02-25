@@ -56,7 +56,7 @@ export class UserCommand extends Command {
     return interaction.respond(options)
   }
 
-  public async chatInputRun(interaction: Command.ChatInputInteraction) {
+  public async chatInputRun(interaction: Command.ChatInputCommandInteraction) {
     const title = interaction.options.getString('topic', true),
       mention = interaction.options.getUser('mention')
 

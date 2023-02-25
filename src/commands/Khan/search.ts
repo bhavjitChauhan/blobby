@@ -2,7 +2,7 @@ import { Subcommand } from '@sapphire/plugin-subcommands'
 import { ApplyOptions } from '@sapphire/decorators'
 import { aggregate, Collections } from '../../lib/mongodb/mongodb'
 import { EmbedLimits, PaginatedMessage } from '@sapphire/discord.js-utilities'
-import { MessageEmbed } from 'discord.js'
+import { EmbedBuilder } from 'discord.js'
 import config from '../../config'
 import { BULLET_SEPARATOR, EN_SPACE_CHAR } from '../../lib/constants'
 import { displayName, profileURL, sortScratchpadsByDate } from '../../lib/utils/khan'
@@ -212,8 +212,8 @@ export class UserCommand extends Subcommand {
 
   private paginatedMessageCode(query: string, scratchpads: ScratchpadDocument[], sort: CodeSortOptions, stopwatch: Stopwatch) {
     const paginatedMessage = new PaginatedMessage({
-      template: new MessageEmbed() //
-        .setColor('GREEN')
+      template: new EmbedBuilder() //
+        .setColor('Green')
         .setFooter({
           text: formatStopwatch(stopwatch),
         }),
@@ -250,7 +250,7 @@ export class UserCommand extends Subcommand {
     return paginatedMessage
   }
 
-  public async chatInputCode(interaction: Subcommand.ChatInputInteraction) {
+  public async chatInputCode(interaction: Subcommand.ChatInputCommandInteraction) {
     await interaction.deferReply()
 
     const stopwatch = new Stopwatch()
@@ -401,8 +401,8 @@ export class UserCommand extends Subcommand {
 
   private paginatedMessageUser(query: string, authors: AuthorDocument[], sort: UserSortOptions, stopwatch: Stopwatch) {
     const paginatedMessage = new PaginatedMessage({
-      template: new MessageEmbed() //
-        .setColor('GREEN')
+      template: new EmbedBuilder() //
+        .setColor('Green')
         .setFooter({
           text: formatStopwatch(stopwatch),
         }),
@@ -470,7 +470,7 @@ export class UserCommand extends Subcommand {
     return paginatedMessage
   }
 
-  public async chatInputUser(interaction: Subcommand.ChatInputInteraction) {
+  public async chatInputUser(interaction: Subcommand.ChatInputCommandInteraction) {
     await interaction.deferReply()
 
     const stopwatch = new Stopwatch()

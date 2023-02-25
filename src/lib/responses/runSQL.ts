@@ -1,4 +1,4 @@
-import { ButtonInteraction, MessageAttachment, MessageEmbed, ModalSubmitInteraction } from 'discord.js'
+import { ButtonInteraction, AttachmentBuilder, EmbedBuilder, ModalSubmitInteraction } from 'discord.js'
 import type { Subcommand } from '@sapphire/plugin-subcommands'
 import { isNullish } from '@sapphire/utilities'
 import { evaluate } from '../puppeteer'
@@ -8,7 +8,7 @@ import { RunEnvironments, RunEnvironmentTitles } from '../constants'
 import config from '../../config'
 
 export async function runSQL(
-  interaction: Subcommand.ChatInputInteraction | ButtonInteraction | ModalSubmitInteraction,
+  interaction: Subcommand.ChatInputCommandInteraction | ButtonInteraction | ModalSubmitInteraction,
   code: string,
   partialOptions: Partial<RunOptionsSQL>
 ) {
@@ -28,8 +28,8 @@ export async function runSQL(
     data.buffer = await frameHandle.screenshot()
   })
 
-  const embed = new MessageEmbed()
-    .setColor(success ? 'GREEN' : 'RED')
+  const embed = new EmbedBuilder()
+    .setColor(success ? 'Green' : 'Red')
     .setTitle(`${RunEnvironmentTitles[RunEnvironments.SQL]} Output`)
     .setFooter({ text: formatStopwatch(stopwatch) })
 
@@ -37,7 +37,7 @@ export async function runSQL(
 
   let attachment = null
   if (success && Buffer.isBuffer(buffer)) {
-    attachment = new MessageAttachment(buffer, 'screenshot.png')
+    attachment = new AttachmentBuilder(buffer, { name: 'screenshot.png' })
     embed.setImage('attachment://screenshot.png')
   }
 

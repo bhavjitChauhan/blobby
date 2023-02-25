@@ -1,6 +1,6 @@
 import { AllFlowsPrecondition } from '@sapphire/framework'
 import { cyan } from 'colorette'
-import type { CommandInteraction, ContextMenuInteraction, Message, User } from 'discord.js'
+import type { CommandInteraction, ContextMenuCommandInteraction, Message, User } from 'discord.js'
 import { rateLimitManager } from '../lib/rate-limits'
 
 export class UserPrecondition extends AllFlowsPrecondition {
@@ -10,7 +10,7 @@ export class UserPrecondition extends AllFlowsPrecondition {
     return this.doUserRateLimitCheck(interaction.user, interaction)
   }
 
-  public override contextMenuRun(interaction: ContextMenuInteraction) {
+  public override contextMenuRun(interaction: ContextMenuCommandInteraction) {
     return this.doUserRateLimitCheck(interaction.user, interaction)
   }
 
@@ -18,7 +18,7 @@ export class UserPrecondition extends AllFlowsPrecondition {
     return this.doUserRateLimitCheck(message.author, message)
   }
 
-  private doUserRateLimitCheck(user: User, interaction: CommandInteraction | ContextMenuInteraction | Message) {
+  private doUserRateLimitCheck(user: User, interaction: CommandInteraction | ContextMenuCommandInteraction | Message) {
     const rateLimit = rateLimitManager.acquire(user.id)
     if (rateLimit.limited) {
       this.container.logger.debug(

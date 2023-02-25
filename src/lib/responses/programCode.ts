@@ -7,7 +7,7 @@ import { truncate } from '../utils/general'
 import { AttachmentLimits } from '../utils/limits'
 import { khanClient } from '../khan-cookies'
 
-export async function programCode(interaction: Subcommand.ChatInputInteraction | ButtonInteraction, program: string) {
+export async function programCode(interaction: Subcommand.ChatInputCommandInteraction | ButtonInteraction, program: string) {
   await deferReply(interaction)
 
   const id = parseProgram(program)

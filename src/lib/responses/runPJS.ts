@@ -1,5 +1,5 @@
 import { codeBlock, isNullish } from '@sapphire/utilities'
-import { ButtonInteraction, MessageAttachment, MessageEmbed, ModalSubmitInteraction } from 'discord.js'
+import { ButtonInteraction, AttachmentBuilder, EmbedBuilder, ModalSubmitInteraction } from 'discord.js'
 import { formatStopwatch } from '../utils/discord'
 import { EmbedLimits } from '@sapphire/discord-utilities'
 import { pluralize, unescapeHTML, waitForTimeout } from '../utils/general'
@@ -13,7 +13,7 @@ import { createCanvas, loadImage } from 'canvas'
 import { Time } from '@sapphire/time-utilities'
 
 export async function runPJS(
-  interaction: Subcommand.ChatInputInteraction | ButtonInteraction | ModalSubmitInteraction,
+  interaction: Subcommand.ChatInputCommandInteraction | ButtonInteraction | ModalSubmitInteraction,
   code: string,
   partialOptions: Partial<RunOptionsPJS>
 ) {
@@ -108,8 +108,8 @@ export async function runPJS(
     }
   )
 
-  const embed = new MessageEmbed()
-    .setColor(success ? 'GREEN' : 'RED')
+  const embed = new EmbedBuilder()
+    .setColor(success ? 'Green' : 'Red')
     .setTitle(`${RunEnvironmentTitles[RunEnvironments.PJS]} Output`)
     .setFooter({ text: formatStopwatch(stopwatch) })
 
@@ -118,7 +118,7 @@ export async function runPJS(
   let attachment
   if (success && buffer instanceof Buffer) {
     const filename = `canvas.${options.animated ? 'gif' : 'png'}`
-    attachment = new MessageAttachment(buffer, filename)
+    attachment = new AttachmentBuilder(buffer, { name: filename })
     embed.setImage(`attachment://${filename}`)
   }
 
