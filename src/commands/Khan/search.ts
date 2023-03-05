@@ -132,23 +132,19 @@ export class UserCommand extends Subcommand {
   }
 
   private pipelineCode(query: string, sort: CodeSortOptions) {
-    const sortStage = {
-      $sort: {
-        [sort === 'oldest' || sort === 'newest' ? 'created' : sort]: sort === 'oldest' ? 1 : -1,
-      },
-    }
     return [
       {
         $match: {
-          votes: {
-            $gte: 10,
-          },
           $text: {
             $search: query,
           },
         },
       },
-      sortStage,
+      {
+        $sort: {
+          [sort === 'oldest' || sort === 'newest' ? 'created' : sort]: sort === 'oldest' ? 1 : -1,
+        },
+      },
       {
         $limit: config.search.resultsPerPage * 25,
       },
