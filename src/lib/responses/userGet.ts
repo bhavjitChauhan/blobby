@@ -32,7 +32,7 @@ export async function userGet(interaction: Subcommand.ChatInputCommandInteractio
     text: [embed.data.footer!.text, formatStopwatch(stopwatch)].join(BULLET_SEPARATOR),
     iconURL: embed.data.footer!.icon_url,
   })
-  await interaction.editReply({
+  return interaction.editReply({
     embeds: [embed],
     components: createComponents(user),
   })
@@ -154,6 +154,10 @@ function createEmbed(user: User) {
 function createComponents(user: User) {
   return [
     new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder() //
+        .setLabel('Programs')
+        .setStyle(ButtonStyle.Primary)
+        .setCustomId(`user-programs-${user.kaid ?? user.username}`),
       new ButtonBuilder() //
         .setEmoji('👥')
         .setLabel('Profile')

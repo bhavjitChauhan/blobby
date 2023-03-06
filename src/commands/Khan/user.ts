@@ -4,6 +4,8 @@ import { khanClient } from '../../lib/khan-cookies'
 import { deferReply } from '../../lib/utils/discord'
 import { userGet } from '../../lib/responses/userGet'
 import { ErrorMessages } from '../../lib/constants'
+import { userPrograms } from '../../lib/responses/userPrograms'
+import { ListProgramSortOrder } from '@bhavjit/khan-api'
 
 @ApplyOptions<Subcommand.Options>({
   description: 'Get topics about a Khan Academy user',
@@ -16,6 +18,10 @@ import { ErrorMessages } from '../../lib/constants'
     {
       name: 'avatar',
       chatInputRun: 'chatInputAvatar',
+    },
+    {
+      name: 'programs',
+      chatInputRun: 'chatInputPrograms',
     },
   ],
 })
@@ -64,15 +70,40 @@ export class UserCommand extends Subcommand {
                     }
                   )
               )
+          )
+          .addSubcommand((subcommand) =>
+            subcommand //
+              .setName('programs')
+              .setDescription("Get a list of a user's programs")
+              .addStringOption((option) =>
+                option //
+                  .setName('user')
+                  .setDescription(this.#OPTION_DESCRIPTION_USER)
+                  .setRequired(true)
+              )
+              .addStringOption((option) =>
+                option //
+                  .setName('sort')
+                  .setDescription('How should I sort the programs?')
+                  .addChoices(
+                    {
+                      name: 'Recent',
+                      value: ListProgramSortOrder.RECENT,
+                    },
+                    {
+                      name: 'Popular (default)',
+                      value: ListProgramSortOrder.TOP,
+                    }
+                  )
+              )
           ),
       { idHints: ['1013219228171644948', '1020204331158478848'] }
     )
   }
 
   public async chatInputGet(interaction: Subcommand.ChatInputCommandInteraction) {
-    const user = interaction.options.getString('user', true)
-
-    await userGet(interaction, user)
+    const identifier = interaction.options.getString('user', true)
+    return await userGet(interaction, identifier)
   }
 
   public async chatInputAvatar(interaction: Subcommand.ChatInputCommandInteraction) {
@@ -89,5 +120,11 @@ export class UserCommand extends Subcommand {
     }
 
     await interaction.editReply(avatarURL)
+  }
+
+  public async chatInputPrograms(interaction: Subcommand.ChatInputCommandInteraction) {
+    const identifier = interaction.options.getString('user', true),
+      sort = interaction.options.getString('sort', false) as ListProgramSortOrder | undefined
+    return await userPrograms(interaction, identifier, sort)
   }
 }

@@ -1,6 +1,5 @@
 import './lib/setup'
 import { LogLevel, SapphireClient } from '@sapphire/framework'
-import { login } from './lib/khan-cookies'
 import { Partials } from 'discord.js'
 
 export const client = new SapphireClient({
@@ -18,9 +17,9 @@ const main = async () => {
     client.logger.info('Logging into Discord...')
     await client.login()
     client.logger.info('Logged into Discord...')
-    client.logger.info('Logging into Khan Academy...')
-    await login()
-    client.logger.info('Logged into Khan Academy')
+    // client.logger.info('Logging into Khan Academy...')
+    // await login()
+    // client.logger.info('Logged into Khan Academy')
   } catch (error) {
     client.logger.fatal(error)
     client.destroy()

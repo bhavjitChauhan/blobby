@@ -146,7 +146,7 @@ export class UserCommand extends Subcommand {
         },
       },
       {
-        $limit: config.search.resultsPerPage * 25,
+        $limit: config.resultsPerPage * 25,
       },
       {
         $lookup: {
@@ -215,17 +215,15 @@ export class UserCommand extends Subcommand {
         }),
     })
 
-    for (let i = 0; i < scratchpads.length; i += config.search.resultsPerPage) {
+    for (let i = 0; i < scratchpads.length; i += config.resultsPerPage) {
       paginatedMessage.addPageEmbed((embed) =>
         embed //
           .setTitle(
-            `${scratchpads.length === config.search.resultsPerPage * 25 ? scratchpads.length + '+' : scratchpads.length} results for ${inlineCode(
-              query
-            )}`
+            `${scratchpads.length === config.resultsPerPage * 25 ? scratchpads.length + '+' : scratchpads.length} results for ${inlineCode(query)}`
           )
           .addFields(
             scratchpads //
-              .slice(i, i + config.search.resultsPerPage)
+              .slice(i, i + config.resultsPerPage)
               .map((scratchpad) => {
                 let valueArr: string[]
                 if (sort === 'oldest' || sort === 'newest') valueArr = [time(scratchpad.created, 'R')]
@@ -358,7 +356,7 @@ export class UserCommand extends Subcommand {
       },
       sortStage,
       {
-        $limit: config.search.resultsPerPage * 25,
+        $limit: config.resultsPerPage * 25,
       },
     ]
   }
@@ -404,15 +402,13 @@ export class UserCommand extends Subcommand {
         }),
     })
 
-    for (let i = 0; i < authors.length; i += config.search.resultsPerPage) {
+    for (let i = 0; i < authors.length; i += config.resultsPerPage) {
       paginatedMessage.addPageEmbed((embed) =>
         embed //
-          .setTitle(
-            `${authors.length === config.search.resultsPerPage * 25 ? authors.length + '+' : authors.length} results for ${inlineCode(query)}`
-          )
+          .setTitle(`${authors.length === config.resultsPerPage * 25 ? authors.length + '+' : authors.length} results for ${inlineCode(query)}`)
           .addFields(
             authors //
-              .slice(i, i + config.search.resultsPerPage)
+              .slice(i, i + config.resultsPerPage)
               .map((author) => {
                 const votesStr = `${author.scratchpadStats.votes.toLocaleString()} Votes`,
                   forksStr = `${author.scratchpadStats.forks.toLocaleString()} Forks`,

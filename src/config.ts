@@ -34,7 +34,5 @@ export default {
       quality: 15,
     },
   },
-  search: {
-    resultsPerPage: 8,
-  },
+  resultsPerPage: 8,
 }
