@@ -1,12 +1,9 @@
 import { ApplyOptions } from '@sapphire/decorators'
 import { Subcommand } from '@sapphire/plugin-subcommands'
 import { khanClient } from '../../lib/khan-cookies'
-import { profanity } from '@2toad/profanity'
-import { ValidationError } from '../../lib/errors'
 import { deferReply } from '../../lib/utils/discord'
 import { userGet } from '../../lib/responses/userGet'
 import { ErrorMessages } from '../../lib/constants'
-import { KaidRegex } from '@bhavjit/khan-api'
 
 @ApplyOptions<Subcommand.Options>({
   description: 'Get topics about a Khan Academy user',
@@ -23,7 +20,7 @@ import { KaidRegex } from '@bhavjit/khan-api'
   ],
 })
 export class UserCommand extends Subcommand {
-  readonly #OPTION_DESCRIPTION_USER = "What's the username or ID of the user?"
+  readonly #OPTION_DESCRIPTION_USER = "What's the username or KAID of the user?"
 
   public override registerApplicationCommands(registry: Subcommand.Registry) {
     registry.registerChatInputCommand(
@@ -34,7 +31,7 @@ export class UserCommand extends Subcommand {
           .addSubcommand((subcommand) =>
             subcommand //
               .setName('get')
-              .setDescription('Get general topics about a user')
+              .setDescription('Get general info about a user')
               .addStringOption((option) =>
                 option //
                   .setName('user')
@@ -52,36 +49,24 @@ export class UserCommand extends Subcommand {
                   .setDescription(this.#OPTION_DESCRIPTION_USER)
                   .setRequired(true)
               )
+              .addStringOption((option) =>
+                option //
+                  .setName('type')
+                  .setDescription('What image format should I use?')
+                  .addChoices(
+                    {
+                      name: 'SVG',
+                      value: 'svg',
+                    },
+                    {
+                      name: 'PNG (default)',
+                      value: 'png',
+                    }
+                  )
+              )
           ),
       { idHints: ['1013219228171644948', '1020204331158478848'] }
     )
-  }
-
-  private async getAvatarURL(interaction: Subcommand.ChatInputCommandInteraction) {
-    let user = interaction.options.getString('user', true) as string
-    if (profanity.exists(user)) throw new ValidationError(ErrorMessages.InappropriateUser)
-
-    if (!KaidRegex.test(user)) {
-      let profileInfo
-      try {
-        profileInfo = await khanClient.getUser(user)
-      } catch (err) {
-        if (err instanceof Error && err.message === 'User not found') throw new ValidationError(ErrorMessages.UserNotFound)
-        else throw err
-      }
-      if (!profileInfo.kaid) throw new ValidationError(ErrorMessages.UserNotFound)
-      user = profileInfo.kaid
-    }
-
-    let avatarData
-    try {
-      avatarData = await khanClient.getAvatar(user, 'png')
-    } catch (err) {
-      if (err instanceof Error && err.message === 'User not found') throw new ValidationError(ErrorMessages.UserNotFound)
-      else throw err
-    }
-
-    return avatarData
   }
 
   public async chatInputGet(interaction: Subcommand.ChatInputCommandInteraction) {
@@ -95,12 +80,12 @@ export class UserCommand extends Subcommand {
 
     let avatarURL
     try {
-      avatarURL = await this.getAvatarURL(interaction)
+      const user = interaction.options.getString('user', true),
+        type = interaction.options.getString('type', false) ?? 'png'
+      avatarURL = await khanClient.getAvatar(user, type as 'png' | 'svg')
     } catch (err) {
-      if (err instanceof ValidationError) {
-        await interaction.editReply(err.message)
-        return
-      } else throw err
+      await interaction.editReply(ErrorMessages.UserNotFound)
+      throw err
     }
 
     await interaction.editReply(avatarURL)
