@@ -12,7 +12,7 @@ import { truncate } from '../utils/general'
 import { profileURL } from '../utils/khan'
 import { SapphirePaginatedMessageLimits } from '../utils/limits'
 
-const MAX_PROGRAMS = SapphirePaginatedMessageLimits.MaximumPages * config.resultsPerPage
+const MAX_PROGRAMS = SapphirePaginatedMessageLimits.MaximumPages * config.itemsPerPage
 
 export async function userPrograms(
   interaction: ButtonInteraction | Subcommand.ChatInputCommandInteraction,
@@ -74,6 +74,6 @@ function paginatedMessagePrograms(programs: Program[], author: User, identifier:
         }
       })
     )
-    .setItemsPerPage(config.resultsPerPage)
+    .setItemsPerPage(config.itemsPerPage)
     .make()
 }

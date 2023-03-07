@@ -1,8 +1,8 @@
 import { Subcommand } from '@sapphire/plugin-subcommands'
 import { ApplyOptions } from '@sapphire/decorators'
 import { aggregate, Collections } from '../../lib/mongodb/mongodb'
-import { EmbedLimits, PaginatedMessage } from '@sapphire/discord.js-utilities'
-import { EmbedBuilder } from 'discord.js'
+import { EmbedLimits, LazyPaginatedMessage, PaginatedMessage } from '@sapphire/discord.js-utilities'
+import { EmbedBuilder, EmbedField } from 'discord.js'
 import config from '../../config'
 import { BULLET_SEPARATOR, EN_SPACE_CHAR } from '../../lib/constants'
 import { displayName, profileURL, sortScratchpadsByDate } from '../../lib/utils/khan'
@@ -15,6 +15,7 @@ import { profanity } from '@2toad/profanity'
 import { searchUser } from '../../lib/elasticsearch/elasticsearch'
 import type { Kaid } from '@bhavjit/khan-api'
 import type { AuthorDocument as ElasticAuthorDocument } from '../../lib/elasticsearch/types'
+import type { SearchHitsMetadata } from '@elastic/elasticsearch/lib/api/types'
 
 @ApplyOptions<Subcommand.Options>({
   description: 'Search for a Khan Academy user or program',
@@ -185,7 +186,7 @@ export class UserCommand extends Subcommand {
         },
       },
       {
-        $limit: config.resultsPerPage * 25,
+        $limit: config.itemsPerPage * 25,
       },
       {
         $lookup: {
@@ -254,15 +255,15 @@ export class UserCommand extends Subcommand {
         }),
     })
 
-    for (let i = 0; i < scratchpads.length; i += config.resultsPerPage) {
+    for (let i = 0; i < scratchpads.length; i += config.itemsPerPage) {
       paginatedMessage.addPageEmbed((embed) =>
         embed //
           .setTitle(
-            `${scratchpads.length === config.resultsPerPage * 25 ? scratchpads.length + '+' : scratchpads.length} results for ${inlineCode(query)}`
+            `${scratchpads.length === config.itemsPerPage * 25 ? scratchpads.length + '+' : scratchpads.length} results for ${inlineCode(query)}`
           )
           .addFields(
             scratchpads //
-              .slice(i, i + config.resultsPerPage)
+              .slice(i, i + config.itemsPerPage)
               .map((scratchpad) => {
                 let valueArr: string[]
                 if (sort === 'oldest' || sort === 'newest') valueArr = [time(scratchpad.created, 'R')]
@@ -398,7 +399,7 @@ export class UserCommand extends Subcommand {
       },
       ...(sort !== 'relevance' ? [sortStage] : []),
       {
-        $limit: config.resultsPerPage * 25,
+        $limit: config.itemsPerPage * 25,
       },
     ]
   }
@@ -435,6 +436,57 @@ export class UserCommand extends Subcommand {
     }
   }
 
+  private pageEmbedFieldUser(result: AuthorResult, type: UserSearchType, sort: UserSort) {
+    const votesStr = `${result.votes?.toLocaleString() ?? '❓'} Votes`,
+      forksStr = `${result.forks?.toLocaleString() ?? '❓'} Forks`,
+      programsStr = `${result.scratchpads?.toLocaleString() ?? '❓'} Programs`,
+      questionsStr = `${result.questions.toLocaleString()} Questions`,
+      answersStr = `${result.answers.toLocaleString()} Answers`,
+      commentsStr = `${result.comments.toLocaleString()} Tips & Thanks`,
+      repliesStr = `${result.replies.toLocaleString()} Replies`,
+      projectquestionsStr = `${result.projectquestions.toLocaleString()} Help Requests`,
+      projectanswersStr = `${result.projectanswers.toLocaleString()} Help Replies`
+
+    let valueArr: string[]
+    switch (sort) {
+      case UserSort.Relevance:
+        valueArr = type === UserSearchType.Elasticsearch ? [commentsStr, questionsStr, repliesStr] : [votesStr, forksStr, programsStr]
+        break
+      case UserSort.Votes:
+        valueArr = [votesStr, forksStr, programsStr]
+        break
+      case UserSort.Forks:
+        valueArr = [forksStr, votesStr, programsStr]
+        break
+      case UserSort.Scratchpads:
+        valueArr = [programsStr, votesStr, forksStr]
+        break
+      case UserSort.Questions:
+        valueArr = [questionsStr, answersStr]
+        break
+      case UserSort.Answers:
+        valueArr = [answersStr, questionsStr]
+        break
+      case UserSort.Comments:
+        valueArr = [commentsStr, repliesStr]
+        break
+      case UserSort.Replies:
+        valueArr = [repliesStr, commentsStr]
+        break
+      case UserSort.ProjectQuestions:
+        valueArr = [projectquestionsStr, projectanswersStr]
+        break
+      case UserSort.ProjectAnswers:
+        valueArr = [projectanswersStr, projectquestionsStr]
+        break
+    }
+
+    return {
+      name: displayName(result.nickname, result.username, result.kaid, EmbedLimits.MaximumFieldNameLength, false),
+      value: hyperlink('🔗', profileURL(result.username, result.kaid)) + EN_SPACE_CHAR + valueArr.join(BULLET_SEPARATOR),
+    } as EmbedField
+  }
+
   private paginatedMessageUser(
     results: AuthorResult[],
     query: string,
@@ -446,6 +498,7 @@ export class UserCommand extends Subcommand {
     const paginatedMessage = new PaginatedMessage({
       template: new EmbedBuilder() //
         .setColor('Green')
+        .setTitle(`${results.length === config.itemsPerPage * 25 ? results.length + '+' : results.length} results for ${inlineCode(query)}`)
         .addFields(
           unsupportedSort
             ? [
@@ -464,65 +517,93 @@ export class UserCommand extends Subcommand {
         }),
     })
 
-    for (let i = 0; i < results.length; i += config.resultsPerPage) {
+    for (let i = 0; i < results.length; i += config.itemsPerPage) {
       paginatedMessage.addPageEmbed((embed) =>
         embed //
-          .setTitle(`${results.length === config.resultsPerPage * 25 ? results.length + '+' : results.length} results for ${inlineCode(query)}`)
           .addFields(
             results //
-              .slice(i, i + config.resultsPerPage)
-              .map((result) => {
-                const votesStr = `${result.votes?.toLocaleString() ?? '❓'} Votes`,
-                  forksStr = `${result.forks?.toLocaleString() ?? '❓'} Forks`,
-                  programsStr = `${result.scratchpads?.toLocaleString() ?? '❓'} Programs`,
-                  questionsStr = `${result.questions.toLocaleString()} Questions`,
-                  answersStr = `${result.answers.toLocaleString()} Answers`,
-                  commentsStr = `${result.comments.toLocaleString()} Tips & Thanks`,
-                  repliesStr = `${result.replies.toLocaleString()} Replies`,
-                  projectquestionsStr = `${result.projectquestions.toLocaleString()} Help Requests`,
-                  projectanswersStr = `${result.projectanswers.toLocaleString()} Help Replies`
-
-                let valueArr: string[]
-                switch (sort) {
-                  case UserSort.Relevance:
-                    valueArr = type === UserSearchType.Elasticsearch ? [commentsStr, questionsStr, repliesStr] : [votesStr, forksStr, programsStr]
-                    break
-                  case UserSort.Votes:
-                    valueArr = [votesStr, forksStr, programsStr]
-                    break
-                  case UserSort.Forks:
-                    valueArr = [forksStr, votesStr, programsStr]
-                    break
-                  case UserSort.Scratchpads:
-                    valueArr = [programsStr, votesStr, forksStr]
-                    break
-                  case UserSort.Questions:
-                    valueArr = [questionsStr, answersStr]
-                    break
-                  case UserSort.Answers:
-                    valueArr = [answersStr, questionsStr]
-                    break
-                  case UserSort.Comments:
-                    valueArr = [commentsStr, repliesStr]
-                    break
-                  case UserSort.Replies:
-                    valueArr = [repliesStr, commentsStr]
-                    break
-                  case UserSort.ProjectQuestions:
-                    valueArr = [projectquestionsStr, projectanswersStr]
-                    break
-                  case UserSort.ProjectAnswers:
-                    valueArr = [projectanswersStr, projectquestionsStr]
-                    break
-                }
-
-                return {
-                  name: displayName(result.nickname, result.username, result.kaid, EmbedLimits.MaximumFieldNameLength, false),
-                  value: hyperlink('🔗', profileURL(result.username, result.kaid)) + EN_SPACE_CHAR + valueArr.join(BULLET_SEPARATOR),
-                }
-              })
+              .slice(i, i + config.itemsPerPage)
+              .map((result) => this.pageEmbedFieldUser(result, type, sort))
           )
       )
+    }
+
+    return paginatedMessage
+  }
+
+  private lazyPaginatedMessageUser(
+    hits: SearchHitsMetadata<ElasticAuthorDocument>,
+    query: string,
+    type: UserSearchType,
+    sort: UserSort,
+    unsupportedSort: boolean,
+    stopwatch: Stopwatch
+  ) {
+    const paginatedMessage = new LazyPaginatedMessage({
+      template: new EmbedBuilder() //
+        .setColor('Green')
+        .setTitle(`${typeof hits.total === 'number' ? hits.total : hits.total?.value} results for ${inlineCode(query)}`)
+        .addFields(
+          unsupportedSort
+            ? [
+                formatFieldWarning(
+                  `${
+                    type === UserSearchType.Elasticsearch ? this.UserSearchTypeMapping.mongodb : this.UserSearchTypeMapping.elasticsearch
+                  } searches don't support sorting by ${sort}, so I did a ${
+                    type === UserSearchType.Elasticsearch ? this.UserSearchTypeMapping.elasticsearch : this.UserSearchTypeMapping.mongodb
+                  } search instead`
+                ),
+              ]
+            : []
+        )
+        .setFooter({
+          text: formatStopwatch(stopwatch),
+        }),
+    })
+
+    const createFields = (hits: SearchHitsMetadata<ElasticAuthorDocument>) => {
+      return hits.hits
+        .filter(({ _source }) => typeof _source !== 'undefined')
+        .map(({ _source }) => {
+          _source = _source as ElasticAuthorDocument
+          return this.pageEmbedFieldUser(
+            {
+              kaid: `kaid_${_source.authorID}` as Kaid,
+              username: _source.username,
+              nickname: _source.nickname,
+              questions: _source.questions,
+              answers: _source.answers,
+              comments: _source.comments,
+              replies: _source.replies,
+              projectquestions: _source.projectquestions,
+              projectanswers: _source.projectanswers,
+            },
+            type,
+            sort
+          )
+        })
+    }
+
+    paginatedMessage.addPageEmbed((embed) =>
+      embed //
+        .addFields(createFields(hits))
+    )
+
+    const total = typeof hits.total === 'number' ? hits.total : hits.total?.value
+    if (!total || total <= config.itemsPerPage) {
+      if (!total) this.container.logger.warn(`Invalid total hits for query ${query} (${hits.total})`)
+      return paginatedMessage
+    }
+
+    for (let i = config.itemsPerPage; i < total; i += config.itemsPerPage) {
+      paginatedMessage.addAsyncPageEmbed(async (embed) => {
+        const stopwatch = new Stopwatch()
+        const results = await searchUser(query, sort !== 'relevance' ? { [sort]: 'desc' } : undefined, config.itemsPerPage, i)
+        if (!results) return embed
+        return embed //
+          .addFields(createFields(results.hits))
+          .setFooter({ text: formatStopwatch(stopwatch) })
+      })
     }
 
     return paginatedMessage
@@ -545,29 +626,12 @@ export class UserCommand extends Subcommand {
     }
 
     if (type === UserSearchType.Elasticsearch) {
-      const response = await searchUser(query, sort !== 'relevance' ? { [sort]: 'desc' } : undefined)
+      const response = await searchUser(query, sort !== 'relevance' ? { [sort]: 'desc' } : undefined, config.itemsPerPage)
       if (response === null) return interaction.editReply(this.#USER_NOT_FOUND)
-      const hits = response.hits.hits
-      if (hits.length === 0) return interaction.editReply(this.#USER_NOT_FOUND)
+      const hits = response.hits
+      if (hits.total === 0) return interaction.editReply(this.#USER_NOT_FOUND)
 
-      const results = hits
-        .filter(({ _source }) => typeof _source !== 'undefined')
-        .map(({ _source }) => {
-          _source = _source as ElasticAuthorDocument
-          return {
-            kaid: `kaid_${_source.authorID}` as Kaid,
-            username: _source.username,
-            nickname: _source.nickname,
-            questions: _source.questions,
-            answers: _source.answers,
-            comments: _source.comments,
-            replies: _source.replies,
-            projectquestions: _source.projectquestions,
-            projectanswers: _source.projectanswers,
-          }
-        })
-
-      const paginatedMessage = this.paginatedMessageUser(results, query, type, sort, unsupportedSort, stopwatch)
+      const paginatedMessage = this.lazyPaginatedMessageUser(hits, query, type, sort, unsupportedSort, stopwatch)
       return paginatedMessage.run(interaction, interaction.user)
     } else {
       const documents = (await aggregate(Collections.Authors, this.pipelineUser(query, sort))) as MongoDbAuthorDocument[] | null

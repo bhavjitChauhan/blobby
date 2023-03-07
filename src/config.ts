@@ -34,5 +34,5 @@ export default {
       quality: 15,
     },
   },
-  resultsPerPage: 8,
+  itemsPerPage: 8,
 }

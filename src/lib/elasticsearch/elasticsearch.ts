@@ -23,13 +23,17 @@ export async function search(
   index: Indices.Authors,
   query: string,
   fields: (keyof AuthorDocument)[],
-  sort?: Partial<Record<keyof AuthorDocument, 'asc' | 'desc'>>
+  sort?: Partial<Record<keyof AuthorDocument, 'asc' | 'desc'>>,
+  size?: number,
+  from?: number
 ): Promise<SearchResponse<AuthorDocument, Record<string, AggregationsAggregate>> | null>
 export async function search(
   index: Indices,
   query: string,
   fields: (keyof AuthorDocument)[],
-  sort?: Partial<Record<keyof AuthorDocument, 'asc' | 'desc'>>
+  sort?: Partial<Record<keyof AuthorDocument, 'asc' | 'desc'>>,
+  size?: number,
+  from?: number
 ) {
   let results = null
   let indexName
@@ -48,6 +52,8 @@ export async function search(
     results = await client.search({
       index: indexName,
       body: {
+        size,
+        from,
         query: {
           simple_query_string: {
             query,
@@ -69,6 +75,6 @@ export async function search(
   return results
 }
 
-export function searchUser(query: string, sort?: Partial<Record<keyof AuthorDocument, 'asc' | 'desc'>>) {
-  return search(Indices.Authors, query, ['authorID', 'nickname', 'username'], sort)
+export function searchUser(query: string, sort?: Partial<Record<keyof AuthorDocument, 'asc' | 'desc'>>, size?: number, from?: number) {
+  return search(Indices.Authors, query, ['authorID', 'nickname', 'username'], sort, size, from)
 }
