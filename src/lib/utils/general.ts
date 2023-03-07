@@ -37,10 +37,31 @@ export function within(a: number, b: number, max: number, min: number | undefine
  *
  * @example
  * truncate('Hello World', 5) // 'He...'
+ *
+ * truncate('123456789', 5, '+') // '1234+'
+ *
+ * truncate('Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.', 64, remaining => ` (${remaining.length} chars remaining)`)
+ * // 'Lorem ipsum dolor sit amet, consectetur adi (80 chars remaining)'
+ *
+ * truncate('Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.', 64, remaining => ` (${remaining.split(' ').length} words remaining)`)
+ * // 'Lorem ipsum dolor sit amet, consectetur adi (13 words remaining)'
  */
-export function truncate(str: string, length: number, postfix = '...') {
+export function truncate(str: string, length: number, postfix?: string): string
+export function truncate(str: string, length: number, postfixFn: (remaining: string) => string): string
+export function truncate(str: string, length: number, postfixOrPostfixFn?: string | ((difference: string) => string)) {
   length = Math.max(0, length)
-  return str.length > length ? str.slice(0, length - postfix.length) + postfix : str
+  postfixOrPostfixFn ??= '...'
+  if (str.length < length) return str
+  if (typeof postfixOrPostfixFn === 'string') return str.length > length ? str.slice(0, length - postfixOrPostfixFn.length) + postfixOrPostfixFn : str
+  else {
+    let remaining = ''
+    while (str.length + postfixOrPostfixFn(remaining).length > length) {
+      remaining = str[str.length - 1] + remaining
+      str = str.slice(0, -1)
+      if (str.length === 0) break
+    }
+    return truncate(str + postfixOrPostfixFn(remaining), length, '')
+  }
 }
 
 /**

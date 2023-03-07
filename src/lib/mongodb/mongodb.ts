@@ -1,11 +1,13 @@
 import { Collection, Db, MongoClient, WithId } from 'mongodb'
 import { performance } from 'perf_hooks'
 import config from '../../config'
+import { assertEnvVars } from '../env-parser'
 import type { AuthorDocument, CollectionStatistics, ScratchpadDocument } from './types'
 
-if (!process.env.MONGODB_URI) throw new Error('The MONGODB_URI environment variable must be set')
-if (!process.env.MONGODB_AUTHORS_COLLECTION || !process.env.MONGODB_SCRATCHPADS_COLLECTION)
-  throw new Error('The MONGODB_AUTHORS_COLLECTION and MONGODB_SCRATCHPADS_COLLECTION environment variables must be set')
+assertEnvVars('MONGODB_URI', 'MONGODB_AUTHORS_COLLECTION', 'MONGODB_SCRATCHPADS_COLLECTION')
+process.env.MONGODB_URI = process.env.MONGODB_URI as string
+process.env.MONGODB_AUTHORS_COLLECTION = process.env.MONGODB_AUTHORS_COLLECTION as string
+process.env.MONGODB_SCRATCHPADS_COLLECTION = process.env.MONGODB_SCRATCHPADS_COLLECTION as string
 
 const uri = process.env.MONGODB_URI
 
