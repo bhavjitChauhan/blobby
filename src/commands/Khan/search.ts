@@ -6,12 +6,15 @@ import { EmbedBuilder } from 'discord.js'
 import config from '../../config'
 import { BULLET_SEPARATOR, EN_SPACE_CHAR } from '../../lib/constants'
 import { displayName, profileURL, sortScratchpadsByDate } from '../../lib/utils/khan'
-import type { AuthorDocument, ScratchpadDocument } from '../../lib/mongodb/types'
+import type { AuthorDocument as MongoDbAuthorDocument, ScratchpadDocument } from '../../lib/mongodb/types'
 import { rank, truncate } from '../../lib/utils/general'
 import { hyperlink, inlineCode, time } from '@discordjs/builders'
 import { Stopwatch } from '@sapphire/stopwatch'
-import { formatStopwatch } from '../../lib/utils/discord'
+import { formatFieldWarning, formatStopwatch } from '../../lib/utils/discord'
 import { profanity } from '@2toad/profanity'
+import { searchUser } from '../../lib/elasticsearch/elasticsearch'
+import type { Kaid } from '@bhavjit/khan-api'
+import type { AuthorDocument as ElasticAuthorDocument } from '../../lib/elasticsearch/types'
 
 @ApplyOptions<Subcommand.Options>({
   description: 'Search for a Khan Academy user or program',
@@ -32,6 +35,23 @@ export class UserCommand extends Subcommand {
   readonly #QUERY_TIMEOUT = 'The search took too long'
   readonly #CODE_NOT_FOUND = "I couldn't find any programs with that code"
   readonly #USER_NOT_FOUND = "I couldn't find any users with that name"
+
+  readonly UserSearchTypeMapping: Record<UserSearchType, string> = {
+    [UserSearchType.Elasticsearch]: 'Enhanced',
+    [UserSearchType.MongoDB]: 'Simple',
+  }
+  readonly UserSortMapping: Record<UserSort, string> = {
+    votes: 'Votes',
+    forks: 'Spin-Offs',
+    scratchpads: 'Programs',
+    questions: 'Questions',
+    answers: 'Answers',
+    comments: 'Tips & Thanks',
+    replies: 'Replies',
+    projectquestions: 'Help Requests',
+    projectanswers: 'Help Replies',
+    relevance: 'Relevance',
+  }
 
   public override registerApplicationCommands(registry: Subcommand.Registry) {
     registry.registerChatInputCommand(
@@ -89,40 +109,59 @@ export class UserCommand extends Subcommand {
                   .setDescription('What should I sort the users by?')
                   .addChoices(
                     {
-                      name: 'Votes',
-                      value: 'votes',
+                      name: this.UserSortMapping.votes,
+                      value: UserSort.Votes,
                     },
                     {
-                      name: 'Spin-Offs',
-                      value: 'forks',
+                      name: this.UserSortMapping.forks,
+                      value: UserSort.Forks,
                     },
                     {
-                      name: 'Programs',
-                      value: 'programs',
+                      name: this.UserSortMapping.scratchpads,
+                      value: UserSort.Scratchpads,
                     },
                     {
-                      name: 'Questions',
-                      value: 'questions',
+                      name: this.UserSortMapping.questions,
+                      value: UserSort.Questions,
                     },
                     {
-                      name: 'Answers',
-                      value: 'answers',
+                      name: this.UserSortMapping.answers,
+                      value: UserSort.Answers,
                     },
                     {
-                      name: 'Tips & Thanks',
-                      value: 'Comments',
+                      name: this.UserSortMapping.comments,
+                      value: UserSort.Comments,
                     },
                     {
-                      name: 'Replies',
-                      value: 'replies',
+                      name: this.UserSortMapping.replies,
+                      value: UserSort.Replies,
                     },
                     {
-                      name: 'Help Requests',
-                      value: 'projectquestions',
+                      name: this.UserSortMapping.projectquestions,
+                      value: UserSort.ProjectQuestions,
                     },
                     {
-                      name: 'Help Replies',
-                      value: 'projectanswers',
+                      name: this.UserSortMapping.projectanswers,
+                      value: UserSort.ProjectAnswers,
+                    },
+                    {
+                      name: `${this.UserSortMapping.relevance} (default)`,
+                      value: UserSort.Relevance,
+                    }
+                  )
+              )
+              .addStringOption((option) =>
+                option //
+                  .setName('type')
+                  .setDescription('What type of search should I do?')
+                  .addChoices(
+                    {
+                      name: this.UserSearchTypeMapping.mongodb,
+                      value: UserSearchType.MongoDB,
+                    },
+                    {
+                      name: `${this.UserSearchTypeMapping.elasticsearch} (default)`,
+                      value: UserSearchType.Elasticsearch,
                     }
                   )
               )
@@ -262,11 +301,11 @@ export class UserCommand extends Subcommand {
     return paginatedMessage.run(interaction, interaction.user)
   }
 
-  private pipelineUser(query: string, sort: UserSortOptions) {
+  private pipelineUser(query: string, sort: UserSort) {
     const mongodbMapping = {
       votes: 'scratchpadData.votes',
       forks: 'scratchpadData.forks',
-      programs: 'scratchpadData.count',
+      scratchpads: 'scratchpadData.count',
       questions: 'questions',
       answers: 'answers',
       comments: 'comments',
@@ -274,11 +313,14 @@ export class UserCommand extends Subcommand {
       projectquestions: 'projectquestions',
       projectanswers: 'projectanswers',
     }
-    const sortStage = {
-      $sort: {
-        [mongodbMapping[sort]]: -1,
-      },
-    }
+    const sortStage =
+      sort !== 'relevance'
+        ? {
+            $sort: {
+              [mongodbMapping[sort]]: -1,
+            },
+          }
+        : {}
     return [
       {
         $match: {
@@ -354,105 +396,129 @@ export class UserCommand extends Subcommand {
           scratchpads: 0,
         },
       },
-      sortStage,
+      ...(sort !== 'relevance' ? [sortStage] : []),
       {
         $limit: config.resultsPerPage * 25,
       },
     ]
   }
 
-  private rankAuthors(authors: AuthorDocument[], sort: UserSortOptions) {
+  private rankAuthorsDocuments(documents: MongoDbAuthorDocument[], sort: UserSort) {
     switch (sort) {
       case 'votes':
-        rank(authors, '-scratchpadStats.votes', '-scratchpadStats.forks', '-scratchpadStats.count')
+        rank(documents, '-scratchpadStats.votes', '-scratchpadStats.forks', '-scratchpadStats.count')
         break
       case 'forks':
-        rank(authors, '-scratchpadStats.forks', '-scratchpadStats.votes', '-scratchpadStats.count')
+        rank(documents, '-scratchpadStats.forks', '-scratchpadStats.votes', '-scratchpadStats.count')
         break
-      case 'programs':
-        rank(authors, '-scratchpadStats.count', '-scratchpadStats.votes', '-scratchpadStats.forks')
+      case 'scratchpads':
+        rank(documents, '-scratchpadStats.count', '-scratchpadStats.votes', '-scratchpadStats.forks')
         break
       case 'questions':
-        rank(authors, '-questions', '-answers', '-comments', '-replies', '-projectquestions', '-projectanswers')
+        rank(documents, '-questions', '-answers', '-comments', '-replies', '-projectquestions', '-projectanswers')
         break
       case 'answers':
-        rank(authors, '-answers', '-questions', '-comments', '-replies', '-projectquestions', '-projectanswers')
+        rank(documents, '-answers', '-questions', '-comments', '-replies', '-projectquestions', '-projectanswers')
         break
       case 'comments':
-        rank(authors, '-comments', '-replies', '-questions', '-answers', '-projectquestions', '-projectanswers')
+        rank(documents, '-comments', '-replies', '-questions', '-answers', '-projectquestions', '-projectanswers')
         break
       case 'replies':
-        rank(authors, '-replies', '-comments', '-questions', '-answers', '-projectquestions', '-projectanswers')
+        rank(documents, '-replies', '-comments', '-questions', '-answers', '-projectquestions', '-projectanswers')
         break
       case 'projectquestions':
-        rank(authors, '-projectquestions', '-projectanswers', '-comments', '-replies', '-questions', '-answers')
+        rank(documents, '-projectquestions', '-projectanswers', '-comments', '-replies', '-questions', '-answers')
         break
       case 'projectanswers':
-        rank(authors, '-projectanswers', '-projectquestions', '-comments', '-replies', '-questions', '-answers')
+        rank(documents, '-projectanswers', '-projectquestions', '-comments', '-replies', '-questions', '-answers')
         break
     }
   }
 
-  private paginatedMessageUser(query: string, authors: AuthorDocument[], sort: UserSortOptions, stopwatch: Stopwatch) {
+  private paginatedMessageUser(
+    results: AuthorResult[],
+    query: string,
+    type: UserSearchType,
+    sort: UserSort,
+    unsupportedSort: boolean,
+    stopwatch: Stopwatch
+  ) {
     const paginatedMessage = new PaginatedMessage({
       template: new EmbedBuilder() //
         .setColor('Green')
+        .addFields(
+          unsupportedSort
+            ? [
+                formatFieldWarning(
+                  `${
+                    type === UserSearchType.Elasticsearch ? this.UserSearchTypeMapping.mongodb : this.UserSearchTypeMapping.elasticsearch
+                  } searches don't support sorting by ${sort}, so I did a ${
+                    type === UserSearchType.Elasticsearch ? this.UserSearchTypeMapping.elasticsearch : this.UserSearchTypeMapping.mongodb
+                  } search instead`
+                ),
+              ]
+            : []
+        )
         .setFooter({
           text: formatStopwatch(stopwatch),
         }),
     })
 
-    for (let i = 0; i < authors.length; i += config.resultsPerPage) {
+    for (let i = 0; i < results.length; i += config.resultsPerPage) {
       paginatedMessage.addPageEmbed((embed) =>
         embed //
-          .setTitle(`${authors.length === config.resultsPerPage * 25 ? authors.length + '+' : authors.length} results for ${inlineCode(query)}`)
+          .setTitle(`${results.length === config.resultsPerPage * 25 ? results.length + '+' : results.length} results for ${inlineCode(query)}`)
           .addFields(
-            authors //
+            results //
               .slice(i, i + config.resultsPerPage)
-              .map((author) => {
-                const votesStr = `${author.scratchpadStats.votes.toLocaleString()} Votes`,
-                  forksStr = `${author.scratchpadStats.forks.toLocaleString()} Forks`,
-                  programsStr = `${author.scratchpadStats.count.toLocaleString()} Programs`,
-                  questionsStr = `${author.questions.toLocaleString()} Questions`,
-                  answersStr = `${author.answers.toLocaleString()} Answers`,
-                  commentsStr = `${author.comments.toLocaleString()} Tips & Thanks`,
-                  repliesStr = `${author.replies.toLocaleString()} Replies`,
-                  projectquestionsStr = `${author.projectquestions.toLocaleString()} Help Requests`,
-                  projectanswersStr = `${author.projectanswers.toLocaleString()} Help Replies`
+              .map((result) => {
+                const votesStr = `${result.votes?.toLocaleString() ?? '❓'} Votes`,
+                  forksStr = `${result.forks?.toLocaleString() ?? '❓'} Forks`,
+                  programsStr = `${result.scratchpads?.toLocaleString() ?? '❓'} Programs`,
+                  questionsStr = `${result.questions.toLocaleString()} Questions`,
+                  answersStr = `${result.answers.toLocaleString()} Answers`,
+                  commentsStr = `${result.comments.toLocaleString()} Tips & Thanks`,
+                  repliesStr = `${result.replies.toLocaleString()} Replies`,
+                  projectquestionsStr = `${result.projectquestions.toLocaleString()} Help Requests`,
+                  projectanswersStr = `${result.projectanswers.toLocaleString()} Help Replies`
+
                 let valueArr: string[]
                 switch (sort) {
-                  case 'votes':
+                  case UserSort.Relevance:
+                    valueArr = type === UserSearchType.Elasticsearch ? [commentsStr, questionsStr, repliesStr] : [votesStr, forksStr, programsStr]
+                    break
+                  case UserSort.Votes:
                     valueArr = [votesStr, forksStr, programsStr]
                     break
-                  case 'forks':
+                  case UserSort.Forks:
                     valueArr = [forksStr, votesStr, programsStr]
                     break
-                  case 'programs':
+                  case UserSort.Scratchpads:
                     valueArr = [programsStr, votesStr, forksStr]
                     break
-                  case 'questions':
+                  case UserSort.Questions:
                     valueArr = [questionsStr, answersStr]
                     break
-                  case 'answers':
+                  case UserSort.Answers:
                     valueArr = [answersStr, questionsStr]
                     break
-                  case 'comments':
+                  case UserSort.Comments:
                     valueArr = [commentsStr, repliesStr]
                     break
-                  case 'replies':
+                  case UserSort.Replies:
                     valueArr = [repliesStr, commentsStr]
                     break
-                  case 'projectquestions':
+                  case UserSort.ProjectQuestions:
                     valueArr = [projectquestionsStr, projectanswersStr]
                     break
-                  case 'projectanswers':
+                  case UserSort.ProjectAnswers:
                     valueArr = [projectanswersStr, projectquestionsStr]
                     break
                 }
 
                 return {
-                  name: displayName(author.nickname, author.username, 'kaid_' + author.authorID, EmbedLimits.MaximumFieldNameLength, false),
-                  value: hyperlink('🔗', profileURL(author.username, 'kaid_' + author.authorID)) + EN_SPACE_CHAR + valueArr.join(BULLET_SEPARATOR),
+                  name: displayName(result.nickname, result.username, result.kaid, EmbedLimits.MaximumFieldNameLength, false),
+                  value: hyperlink('🔗', profileURL(result.username, result.kaid)) + EN_SPACE_CHAR + valueArr.join(BULLET_SEPARATOR),
                 }
               })
           )
@@ -468,18 +534,98 @@ export class UserCommand extends Subcommand {
     const stopwatch = new Stopwatch()
 
     const query = interaction.options.getString('query', true),
-      sort = (interaction.options.getString('sort') ?? 'votes') as UserSortOptions
+      sort = (interaction.options.getString('sort') ?? 'relevance') as UserSort
     if (profanity.exists(query)) return interaction.editReply(this.#INAPPROPRIATE_QUERY)
 
-    const authors = (await aggregate(Collections.Authors, this.pipelineUser(query, sort))) as AuthorDocument[] | null
-    if (authors === null) return interaction.editReply(this.#QUERY_TIMEOUT)
-    if (authors.length === 0) return interaction.editReply(this.#USER_NOT_FOUND)
-    this.rankAuthors(authors, sort)
+    let type = (interaction.options.getString('type') ?? UserSearchType.Elasticsearch) as UserSearchType,
+      unsupportedSort = false
+    if (type === UserSearchType.Elasticsearch && (sort === 'votes' || sort === 'forks' || sort === 'scratchpads')) {
+      type = UserSearchType.MongoDB
+      unsupportedSort = true
+    }
 
-    const paginatedMessage = this.paginatedMessageUser(query, authors, sort, stopwatch)
-    return paginatedMessage.run(interaction, interaction.user)
+    if (type === UserSearchType.Elasticsearch) {
+      const response = await searchUser(query, sort !== 'relevance' ? { [sort]: 'desc' } : undefined)
+      if (response === null) return interaction.editReply(this.#USER_NOT_FOUND)
+      const hits = response.hits.hits
+      if (hits.length === 0) return interaction.editReply(this.#USER_NOT_FOUND)
+
+      const results = hits
+        .filter(({ _source }) => typeof _source !== 'undefined')
+        .map(({ _source }) => {
+          _source = _source as ElasticAuthorDocument
+          return {
+            kaid: `kaid_${_source.authorID}` as Kaid,
+            username: _source.username,
+            nickname: _source.nickname,
+            questions: _source.questions,
+            answers: _source.answers,
+            comments: _source.comments,
+            replies: _source.replies,
+            projectquestions: _source.projectquestions,
+            projectanswers: _source.projectanswers,
+          }
+        })
+
+      const paginatedMessage = this.paginatedMessageUser(results, query, type, sort, unsupportedSort, stopwatch)
+      return paginatedMessage.run(interaction, interaction.user)
+    } else {
+      const documents = (await aggregate(Collections.Authors, this.pipelineUser(query, sort))) as MongoDbAuthorDocument[] | null
+      if (documents === null) return interaction.editReply(this.#QUERY_TIMEOUT)
+      if (documents.length === 0) return interaction.editReply(this.#USER_NOT_FOUND)
+      this.rankAuthorsDocuments(documents, sort)
+
+      const results = documents.map((document) => ({
+        kaid: `kaid_${document.authorID}` as Kaid,
+        username: document.username,
+        nickname: document.nickname,
+        votes: document.scratchpadStats.votes,
+        forks: document.scratchpadStats.forks,
+        scratchpads: document.scratchpadStats.count,
+        questions: document.questions,
+        answers: document.answers,
+        comments: document.comments,
+        replies: document.replies,
+        projectquestions: document.projectquestions,
+        projectanswers: document.projectanswers,
+      }))
+
+      const paginatedMessage = this.paginatedMessageUser(results, query, type, sort, unsupportedSort, stopwatch)
+      return paginatedMessage.run(interaction, interaction.user)
+    }
   }
 }
 
 type CodeSortOptions = 'votes' | 'forks' | 'oldest' | 'newest'
-type UserSortOptions = 'votes' | 'forks' | 'programs' | 'questions' | 'answers' | 'comments' | 'replies' | 'projectquestions' | 'projectanswers'
+
+const enum UserSearchType {
+  Elasticsearch = 'elasticsearch',
+  MongoDB = 'mongodb',
+}
+const enum UserSort {
+  Votes = 'votes',
+  Forks = 'forks',
+  Scratchpads = 'scratchpads',
+  Questions = 'questions',
+  Answers = 'answers',
+  Comments = 'comments',
+  Replies = 'replies',
+  ProjectQuestions = 'projectquestions',
+  ProjectAnswers = 'projectanswers',
+  Relevance = 'relevance',
+}
+
+interface AuthorResult {
+  kaid: Kaid
+  username?: string
+  nickname: string
+  votes?: number
+  forks?: number
+  scratchpads?: number
+  questions: number
+  answers: number
+  comments: number
+  replies: number
+  projectquestions: number
+  projectanswers: number
+}
