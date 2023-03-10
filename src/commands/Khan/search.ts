@@ -628,8 +628,9 @@ export class UserCommand extends Subcommand {
     if (type === UserSearchType.Elasticsearch) {
       const response = await searchUser(query, sort !== 'relevance' ? { [sort]: 'desc' } : undefined, config.itemsPerPage)
       if (response === null) return interaction.editReply(this.#USER_NOT_FOUND)
-      const hits = response.hits
-      if (hits.total === 0) return interaction.editReply(this.#USER_NOT_FOUND)
+      const hits = response.hits,
+        total = typeof hits.total === 'number' ? hits.total : hits.total?.value
+      if (!total || total === 0) return interaction.editReply(this.#USER_NOT_FOUND)
 
       const paginatedMessage = this.lazyPaginatedMessageUser(hits, query, type, sort, unsupportedSort, stopwatch)
       return paginatedMessage.run(interaction, interaction.user)
