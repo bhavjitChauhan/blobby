@@ -1,8 +1,12 @@
 import { ApplyOptions } from '@sapphire/decorators'
 import { Command } from '@sapphire/framework'
 import { EmbedBuilder } from 'discord.js'
+import { assertEnvVars } from '../../lib/env-parser'
 import { getLatency } from '../../lib/mongodb/mongodb'
+import { formatFieldHeading } from '../../lib/utils/discord'
 import { ping } from '../../lib/utils/general'
+
+assertEnvVars('ELASTICSEARCH_URI')
 
 @ApplyOptions<Command.Options>({
   description: "Get the bot's latency",
@@ -25,6 +29,7 @@ export class UserCommand extends Command {
     const createdTime = message.createdTimestamp
     const khanLatency = await ping('https://www.khanacademy.org/_fastly/flags')
     const mongoLatency = await getLatency()
+    const elasticLatency = await ping(process.env.ELASTICSEARCH_URI as string)
     // const mongoLatencyStats = await latencyStats().catch((err) => {
     //   this.container.logger.error(err)
     //   return null
@@ -37,18 +42,29 @@ export class UserCommand extends Command {
         {
           name: 'Bot',
           value: `${Math.round(this.container.client.ws.ping).toLocaleString()}ms`,
+          inline: true,
         },
+        formatFieldHeading('APIs'),
         {
           name: 'Discord API',
           value: `${(createdTime - interaction.createdTimestamp).toLocaleString()}ms`,
+          inline: true,
         },
         {
           name: 'Khan Academy API',
           value: khanLatency ? `${Math.round(khanLatency).toLocaleString()}ms` : '❓',
+          inline: true,
         },
+        formatFieldHeading('Services'),
         {
           name: 'MongoDB',
           value: mongoLatency ? `${Math.round(mongoLatency).toLocaleString()}ms` : '❓',
+          inline: true,
+        },
+        {
+          name: 'Elasticsearch',
+          value: elasticLatency ? `${Math.round(elasticLatency).toLocaleString()}ms` : '❓',
+          inline: true,
         }
       )
 
