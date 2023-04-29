@@ -1,5 +1,5 @@
 import type { ButtonInteraction } from 'discord.js'
-import { InteractionHandler, InteractionHandlerTypes, PieceContext } from '@sapphire/framework'
+import { InteractionHandler, InteractionHandlerTypes, type PieceContext } from '@sapphire/framework'
 import { userGet } from '../../lib/responses/userGet'
 
 export class ButtonHandler extends InteractionHandler {

@@ -1,4 +1,4 @@
-import { InteractionHandler, InteractionHandlerTypes, PieceContext } from '@sapphire/framework'
+import { InteractionHandler, InteractionHandlerTypes, type PieceContext } from '@sapphire/framework'
 import type { ModalSubmitInteraction } from 'discord.js'
 import { deserialize } from '../../lib/utils/general'
 import { runSQL } from '../../lib/responses/runSQL'

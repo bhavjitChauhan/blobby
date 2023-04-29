@@ -1,4 +1,4 @@
-import { Collection, Db, MongoClient, WithId } from 'mongodb'
+import { Collection, Db, MongoClient, type WithId } from 'mongodb'
 import { performance } from 'perf_hooks'
 import config from '../../config'
 import { assertEnvVars } from '../env-parser'

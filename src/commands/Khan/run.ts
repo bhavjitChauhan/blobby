@@ -2,7 +2,7 @@ import { Subcommand } from '@sapphire/plugin-subcommands'
 import { ApplyOptions } from '@sapphire/decorators'
 import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js'
 import { clamp, serialize } from '../../lib/utils/general'
-import { RunOptionsPJS, runPJS } from '../../lib/responses/runPJS'
+import { type RunOptionsPJS, runPJS } from '../../lib/responses/runPJS'
 import type { RunOptionsWebpage } from '../../lib/responses/runWebpage'
 import { runWebpage } from '../../lib/responses/runWebpage'
 import type { RunOptionsSQL } from '../../lib/responses/runSQL'
@@ -228,13 +228,13 @@ export class UserCommand extends Subcommand {
         if (
           !file.contentType ||
           !RunEnvironmentFileTypes[environment].includes(extractFileType(file.contentType) as string) ||
-          typeof file.attachment !== 'string'
+          typeof file.url !== 'string'
         ) {
           await interaction.reply(this.#UNSUPPORTED_FILE_TYPE)
           return
         }
 
-        const response = await fetch(file.attachment)
+        const response = await fetch(file.url)
         if (!response.ok) {
           await interaction.reply(this.#FILE_FETCH_ERROR)
           return

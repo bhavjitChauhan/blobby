@@ -113,7 +113,7 @@ export class UserCommand extends Subcommand {
     try {
       const user = interaction.options.getString('user', true),
         type = interaction.options.getString('type', false) ?? 'png'
-      avatarURL = await khanClient.getAvatar(user, type as 'png' | 'svg')
+      avatarURL = await khanClient.getUserAvatar(user, type as 'png' | 'svg')
     } catch (err) {
       await interaction.editReply(ErrorMessages.UserNotFound)
       throw err

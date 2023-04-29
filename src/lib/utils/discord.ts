@@ -1,15 +1,15 @@
 import { bold, hyperlink, italic } from '@discordjs/builders'
 import { EmbedLimits } from '@sapphire/discord-utilities'
 import type { ChatInputCommandSuccessPayload, Command, ContextMenuCommandSuccessPayload, MessageCommandSuccessPayload } from '@sapphire/framework'
-import { ChatInputCommand, container } from '@sapphire/framework'
+import { type ChatInputCommand, container } from '@sapphire/framework'
 import { send } from '@sapphire/plugin-editable-commands'
 import type { Stopwatch } from '@sapphire/stopwatch'
 import { cyan } from 'colorette'
 import type { APIUser } from 'discord-api-types/v9'
-import { ButtonInteraction, EmbedField, Guild, Message, EmbedBuilder, ModalSubmitInteraction, User } from 'discord.js'
+import { ButtonInteraction, type EmbedField, Guild, Message, EmbedBuilder, ModalSubmitInteraction, User } from 'discord.js'
 import { RandomLoadingMessage, ZERO_WIDTH_SPACE_CHAR } from '../constants'
 import { pickRandom, truncate } from './general'
-import Interaction = ChatInputCommand.Interaction
+type Interaction = ChatInputCommand.Interaction
 
 export function extractFileType(contentType: string | null) {
   if (contentType === null) return null

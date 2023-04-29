@@ -1,7 +1,7 @@
-import { InteractionHandler, InteractionHandlerTypes, PieceContext } from '@sapphire/framework'
+import { InteractionHandler, InteractionHandlerTypes, type PieceContext } from '@sapphire/framework'
 import type { ModalSubmitInteraction } from 'discord.js'
 import { deserialize } from '../../lib/utils/general'
-import { RunOptionsPJS, runPJS } from '../../lib/responses/runPJS'
+import { type RunOptionsPJS, runPJS } from '../../lib/responses/runPJS'
 import { deferReply } from '../../lib/utils/discord'
 import { RunEnvironmentOptionKeys, RunEnvironments } from '../../lib/constants'
 

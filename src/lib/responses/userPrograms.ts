@@ -1,4 +1,4 @@
-import { AvatarSVG, convertAvatarSVGToPNG, ListProgramSortOrder, Program, User } from '@bhavjit/khan-api'
+import { type AvatarSVG, convertAvatarSVGToPNG, ListProgramSortOrder, Program, User } from '@bhavjit/khan-api'
 import { EmbedLimits } from '@sapphire/discord-utilities'
 import { PaginatedMessageEmbedFields } from '@sapphire/discord.js-utilities'
 import type { Subcommand } from '@sapphire/plugin-subcommands'
