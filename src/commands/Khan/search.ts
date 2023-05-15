@@ -13,7 +13,7 @@ import { Stopwatch } from '@sapphire/stopwatch'
 import { deferReply, formatFieldWarning, formatStopwatch } from '../../lib/utils/discord'
 import { profanity } from '@2toad/profanity'
 import { Indices, ProgramTypeScratchpadType } from '../../lib/elasticsearch/client'
-import { Program, type Kaid, ProgramType, isKaid, resolveKaid } from '@bhavjit/khan-api'
+import { Program, type Kaid, ProgramType, resolveKaid } from '@bhavjit/khan-api'
 import type { QueryDslQueryContainer, SearchHitsMetadata } from '@elastic/elasticsearch/lib/api/types'
 import { simpleQueryStringQuery, termQuery, termsQuery } from '../../lib/elasticsearch/builders'
 import { formatTotalHits, resolveTotalHits } from '../../lib/elasticsearch/utils'
@@ -655,7 +655,14 @@ export class UserCommand extends Subcommand {
     if (!title && !code && !description) return interaction.editReply(this.#NO_QUERY)
     if (profanity.exists(`${title}\n${code}`)) return interaction.editReply(this.#INAPPROPRIATE_QUERY)
     let kaid
-    if (user && !isKaid(user)) kaid = await resolveKaid(user)
+    if (user)
+      try {
+        kaid = await resolveKaid(user)
+      } catch (err) {
+        this.container.logger.error(err)
+        return interaction.editReply(this.#USER_NOT_FOUND)
+      }
+
     const queries = [
       title ? simpleQueryStringQuery(title, 'title') : null,
       code ? simpleQueryStringQuery(code, 'code') : null,
