@@ -10,6 +10,7 @@ import { avatarURL, displayNameFooter, profileURL } from '../utils/khan'
 import { time } from '@discordjs/builders'
 import type { Subcommand } from '@sapphire/plugin-subcommands'
 import type { User } from '@bhavjit/khan-api'
+import { container } from '@sapphire/framework'
 
 export async function userGet(interaction: Subcommand.ChatInputCommandInteraction | ButtonInteraction, identifier: string) {
   await deferReply(interaction)
@@ -39,13 +40,13 @@ export async function userGet(interaction: Subcommand.ChatInputCommandInteractio
 }
 
 async function getProfileData(identifier: string) {
-  const user = await khanClient.getUser(identifier).catch((err) => console.error(err))
+  const user = await khanClient.getUser(identifier).catch((err) => container.logger.error(err))
   if (!user) return null
 
   await Promise.all([
-    user.getAllPrograms().catch((err) => console.error(err)),
-    user.getAvatar().catch((err) => console.error(err)),
-    user.getStatistics().catch((err) => console.error(err)),
+    user.getAllPrograms().catch((err) => container.logger.error(err)),
+    user.getAvatar().catch((err) => container.logger.error(err)),
+    user.getStatistics().catch((err) => container.logger.error(err)),
   ])
 
   return user

@@ -11,6 +11,7 @@ import { Time } from '@sapphire/time-utilities'
 import { khanClient } from '../khan-cookies'
 import config from '../../config'
 import type { Question, TipsAndThanks } from '@bhavjit/khan-api'
+import { container } from '@sapphire/framework'
 
 export async function programGet(interaction: Subcommand.ChatInputCommandInteraction, program: string) {
   await deferReply(interaction)
@@ -43,25 +44,25 @@ export async function programGet(interaction: Subcommand.ChatInputCommandInterac
       embeds: [embed],
       components: createComponents(data as ScratchpadData),
     })
-    .catch((err) => console.error(err))
+    .catch((err) => container.logger.error(err))
 }
 
 async function getScratchpadData(id: number) {
   const program = await khanClient.getProgram(id).catch((err) => {
-    console.error(err)
+    container.logger.error(err)
     return null
   })
   if (program)
     await program.author
       ?.get()
       .then((author) => author?.getAvatar())
-      .catch((err) => console.log(err))
+      .catch((err) => container.logger.error(err))
 
   let questions: Question[] = []
   const questionsGenerator = khanClient.getProgramQuestions(id)
   while (questions.length < config.program.discussionLimit) {
     const { done, value } = await questionsGenerator.next().catch((err) => {
-      console.error(err)
+      container.logger.error(err)
       return { done: true, value: null }
     })
     if (!value) break
@@ -73,7 +74,7 @@ async function getScratchpadData(id: number) {
   const commentsGenerator = khanClient.getProgramTipsAndThanks(id)
   while (comments.length < config.program.discussionLimit) {
     const { done, value } = await commentsGenerator.next().catch((err) => {
-      console.error(err)
+      container.logger.error(err)
       return { done: true, value: null }
     })
     if (!value) break

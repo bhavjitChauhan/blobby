@@ -10,7 +10,7 @@ import { parseEnvArray } from '../../lib/env-parser'
 import { deferReply, formatStopwatch } from '../../lib/utils/discord'
 import { truncate } from '../../lib/utils/general'
 
-import { client as _elasticsearchClient } from '../../lib/elasticsearch/elasticsearch'
+import { client as _elasticsearchClient } from '../../lib/elasticsearch/client'
 import { khanClient as _khanClient } from '../../lib/khan-cookies'
 import { client as _mongoClient } from '../../lib/mongodb/mongodb'
 

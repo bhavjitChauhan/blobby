@@ -70,6 +70,10 @@ export function avatarURL(avatarOrAvatarURL: string) {
   return `https://cdn.kastatic.org${avatarOrAvatarURL.replace('/svg', '').replace('.svg', '.png')}`
 }
 
+export function programURL(id: number | string, slug?: string) {
+  return `https://www.khanacademy.org/computer-programming/${slug ?? '-'}/${id}`
+}
+
 export function truncateScratchpadHyperlink(title: string, slug: string, id: number, limit: number) {
   const withoutSlugLength = `[${title}](https://www.khanacademy.org/computer-programming//${id})`.length
   if (slug.length > limit - withoutSlugLength) slug = truncate(slug, limit - withoutSlugLength, '')

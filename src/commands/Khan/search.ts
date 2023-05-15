@@ -2,40 +2,49 @@ import { Subcommand } from '@sapphire/plugin-subcommands'
 import { ApplyOptions } from '@sapphire/decorators'
 import { aggregate, Collections } from '../../lib/mongodb/mongodb'
 import { EmbedLimits, LazyPaginatedMessage, PaginatedMessage } from '@sapphire/discord.js-utilities'
-import { EmbedBuilder, type EmbedField } from 'discord.js'
+import { Colors, EmbedBuilder, type EmbedField } from 'discord.js'
 import config from '../../config'
 import { BULLET_SEPARATOR, EN_SPACE_CHAR } from '../../lib/constants'
-import { displayName, profileURL, sortScratchpadsByDate } from '../../lib/utils/khan'
-import type { AuthorDocument as MongoDbAuthorDocument, ScratchpadDocument } from '../../lib/mongodb/types'
+import { displayName, profileURL, programURL } from '../../lib/utils/khan'
+import type { AuthorDocument as MongoDbAuthorDocument } from '../../lib/mongodb/types'
 import { rank, truncate } from '../../lib/utils/general'
 import { hyperlink, inlineCode, time } from '@discordjs/builders'
 import { Stopwatch } from '@sapphire/stopwatch'
-import { formatFieldWarning, formatStopwatch } from '../../lib/utils/discord'
+import { deferReply, formatFieldWarning, formatStopwatch } from '../../lib/utils/discord'
 import { profanity } from '@2toad/profanity'
-import { searchUser } from '../../lib/elasticsearch/elasticsearch'
-import type { Kaid } from '@bhavjit/khan-api'
-import type { AuthorDocument as ElasticAuthorDocument } from '../../lib/elasticsearch/types'
-import type { SearchHitsMetadata } from '@elastic/elasticsearch/lib/api/types'
+import { Indices, ProgramTypeScratchpadType } from '../../lib/elasticsearch/client'
+import { Program, type Kaid, ProgramType, isKaid, resolveKaid } from '@bhavjit/khan-api'
+import type { QueryDslQueryContainer, SearchHitsMetadata } from '@elastic/elasticsearch/lib/api/types'
+import { simpleQueryStringQuery, termQuery, termsQuery } from '../../lib/elasticsearch/builders'
+import { formatTotalHits, resolveTotalHits } from '../../lib/elasticsearch/utils'
+import { searchBoolean, searchUser } from '../../lib/elasticsearch/search'
+import type {
+  ScratchpadField,
+  AuthorDocument as ElasticAuthorDocument,
+  ScratchpadDocument as ElasticScratchpadDocument,
+} from '../../lib/elasticsearch/types'
+import { SapphirePaginatedMessageLimits } from '../../lib/utils/limits'
 
 @ApplyOptions<Subcommand.Options>({
   description: 'Search for a Khan Academy user or program',
   preconditions: ['UserRateLimit'],
   subcommands: [
     {
-      name: 'code',
-      chatInputRun: 'chatInputCode',
-    },
-    {
       name: 'user',
       chatInputRun: 'chatInputUser',
+    },
+    {
+      name: 'program',
+      chatInputRun: 'chatInputProgram',
     },
   ],
 })
 export class UserCommand extends Subcommand {
   readonly #INAPPROPRIATE_QUERY = "I can't search for that"
+  readonly #NO_QUERY = 'I need something to search for'
   readonly #QUERY_TIMEOUT = 'The search took too long'
-  readonly #CODE_NOT_FOUND = "I couldn't find any programs with that code"
-  readonly #USER_NOT_FOUND = "I couldn't find any users with that name"
+  readonly #USER_NOT_FOUND = "I couldn't find any matching users"
+  readonly #PROGRAM_NOT_FOUND = "I couldn't find any matching programs"
 
   readonly UserSearchTypeMapping: Record<UserSearchType, string> = {
     [UserSearchType.Elasticsearch]: 'Enhanced',
@@ -54,46 +63,25 @@ export class UserCommand extends Subcommand {
     relevance: 'Relevance',
   }
 
+  readonly ProgramSortField: Record<ProgramSort, ScratchpadField> = {
+    votes: 'votes',
+    forks: 'forks',
+    oldest: 'created',
+    newest: 'created',
+  }
+  readonly ProgramSortMapping: Record<ProgramSort, string> = {
+    votes: 'Votes',
+    forks: 'Spin-Offs',
+    oldest: 'Oldest',
+    newest: 'Newest',
+  }
+
   public override registerApplicationCommands(registry: Subcommand.Registry) {
     registry.registerChatInputCommand(
       (builder) =>
         builder //
           .setName(this.name)
           .setDescription(this.description)
-          .addSubcommand((subcommand) =>
-            subcommand //
-              .setName('code')
-              .setDescription('Search for a Khan Academy program')
-              .addStringOption((option) =>
-                option //
-                  .setName('query')
-                  .setDescription('What should I search the code for?')
-                  .setRequired(true)
-              )
-              .addStringOption((option) =>
-                option //
-                  .setName('sort')
-                  .setDescription('What should I sort the programs by?')
-                  .addChoices(
-                    {
-                      name: 'Votes',
-                      value: 'votes',
-                    },
-                    {
-                      name: 'Spin-Offs',
-                      value: 'forks',
-                    },
-                    {
-                      name: 'Oldest',
-                      value: 'oldest',
-                    },
-                    {
-                      name: 'Newest',
-                      value: 'newest',
-                    }
-                  )
-              )
-          )
           .addSubcommand((subcommand) =>
             subcommand //
               .setName('user')
@@ -166,140 +154,76 @@ export class UserCommand extends Subcommand {
                     }
                   )
               )
+          )
+          .addSubcommand((subcommand) =>
+            subcommand //
+              .setName('program')
+              .setDescription('Search for a Khan Academy program')
+              .addStringOption((option) =>
+                option //
+                  .setName('title')
+                  .setDescription('What title should the program have?')
+              )
+              .addStringOption((option) =>
+                option //
+                  .setName('code')
+                  .setDescription('What should I search the code for?')
+              )
+              .addStringOption((option) =>
+                option //
+                  .setName('description')
+                  .setDescription('What should I search any description for?')
+              )
+              .addStringOption((option) =>
+                option //
+                  .setName('type')
+                  .setDescription('What type should the program be?')
+                  .addChoices(
+                    {
+                      name: 'Processing.js',
+                      value: Program.Type.ProcessingJS,
+                    },
+                    {
+                      name: 'Webpage',
+                      value: Program.Type.HTML,
+                    },
+                    {
+                      name: 'SQL',
+                      value: Program.Type.SQL,
+                    }
+                  )
+              )
+              .addStringOption((option) =>
+                option //
+                  .setName('user')
+                  .setDescription('Who (KAID or username) should the program be made by?')
+              )
+              .addStringOption((option) =>
+                option //
+                  .setName('sort')
+                  .setDescription('What should I sort the programs by?')
+                  .addChoices(
+                    {
+                      name: this.ProgramSortMapping.votes,
+                      value: ProgramSort.Votes,
+                    },
+                    {
+                      name: this.ProgramSortMapping.forks,
+                      value: ProgramSort.Forks,
+                    },
+                    {
+                      name: this.ProgramSortMapping.oldest,
+                      value: ProgramSort.Oldest,
+                    },
+                    {
+                      name: this.ProgramSortMapping.newest,
+                      value: ProgramSort.Newest,
+                    }
+                  )
+              )
           ),
       { idHints: ['1015062111354892429', '1020204330307047474'] }
     )
-  }
-
-  private pipelineCode(query: string, sort: CodeSortOptions) {
-    return [
-      {
-        $match: {
-          $text: {
-            $search: query,
-          },
-        },
-      },
-      {
-        $sort: {
-          [sort === 'oldest' || sort === 'newest' ? 'created' : sort]: sort === 'oldest' ? 1 : -1,
-        },
-      },
-      {
-        $limit: config.itemsPerPage * 25,
-      },
-      {
-        $lookup: {
-          from: 'authors',
-          let: {
-            authorID: '$authorID',
-          },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $eq: ['$authorID', '$$authorID'],
-                },
-              },
-            },
-            {
-              $project: {
-                username: 1,
-                nickname: 1,
-              },
-            },
-          ],
-          as: 'author',
-        },
-      },
-      {
-        $addFields: {
-          author: {
-            $first: '$author',
-          },
-        },
-      },
-      {
-        $project: {
-          code: 0,
-        },
-      },
-    ]
-  }
-
-  private rankScratchpads(scratchpads: ScratchpadDocument[], sort: CodeSortOptions) {
-    switch (sort) {
-      case 'votes':
-        rank(scratchpads, '-votes', '-forks')
-        break
-      case 'forks':
-        rank(scratchpads, '-forks', '-votes')
-        break
-      case 'oldest':
-        rank(scratchpads, '-votes', '-forks')
-        sortScratchpadsByDate(scratchpads, 'created', 'updated')
-        break
-      case 'newest':
-        rank(scratchpads, '-votes', '-forks')
-        sortScratchpadsByDate(scratchpads, 'created', 'updated', false)
-        break
-    }
-  }
-
-  private paginatedMessageCode(query: string, scratchpads: ScratchpadDocument[], sort: CodeSortOptions, stopwatch: Stopwatch) {
-    const paginatedMessage = new PaginatedMessage({
-      template: new EmbedBuilder() //
-        .setColor('Green')
-        .setFooter({
-          text: formatStopwatch(stopwatch),
-        }),
-    })
-
-    for (let i = 0; i < scratchpads.length; i += config.itemsPerPage) {
-      paginatedMessage.addPageEmbed((embed) =>
-        embed //
-          .setTitle(
-            `${scratchpads.length === config.itemsPerPage * 25 ? scratchpads.length + '+' : scratchpads.length} results for ${inlineCode(query)}`
-          )
-          .addFields(
-            scratchpads //
-              .slice(i, i + config.itemsPerPage)
-              .map((scratchpad) => {
-                let valueArr: string[]
-                if (sort === 'oldest' || sort === 'newest') valueArr = [time(scratchpad.created, 'R')]
-                else if (sort === 'votes') valueArr = [`${scratchpad.votes} votes`, `${scratchpad.forks} spin-offs`]
-                else valueArr = [`${scratchpad.forks} spin-offs`, `${scratchpad.votes} votes`]
-                return {
-                  name: scratchpad.title ? truncate(scratchpad.title, EmbedLimits.MaximumFieldNameLength) : 'Untitled',
-                  value:
-                    hyperlink('🔗', `https://www.khanacademy.org/computer-programming/-/${scratchpad.scratchpadID}`) +
-                    EN_SPACE_CHAR +
-                    valueArr.join(BULLET_SEPARATOR),
-                }
-              })
-          )
-      )
-    }
-
-    return paginatedMessage
-  }
-
-  public async chatInputCode(interaction: Subcommand.ChatInputCommandInteraction) {
-    await interaction.deferReply()
-
-    const stopwatch = new Stopwatch()
-
-    const query = interaction.options.getString('query', true),
-      sort = (interaction.options.getString('sort') ?? 'votes') as CodeSortOptions
-    if (profanity.exists(query)) return interaction.editReply(this.#INAPPROPRIATE_QUERY)
-
-    const scratchpads = (await aggregate(Collections.Scratchpads, this.pipelineCode(query, sort))) as ScratchpadDocument[] | null
-    if (scratchpads === null) return interaction.editReply(this.#QUERY_TIMEOUT)
-    if (scratchpads.length === 0) return interaction.editReply(this.#CODE_NOT_FOUND)
-    this.rankScratchpads(scratchpads, sort)
-
-    const paginatedMessage = this.paginatedMessageCode(query, scratchpads, sort, stopwatch)
-    return paginatedMessage.run(interaction, interaction.user)
   }
 
   private pipelineUser(query: string, sort: UserSort) {
@@ -542,7 +466,7 @@ export class UserCommand extends Subcommand {
     const paginatedMessage = new LazyPaginatedMessage({
       template: new EmbedBuilder() //
         .setColor('Green')
-        .setTitle(`${typeof hits.total === 'number' ? hits.total : hits.total?.value} results for ${inlineCode(query)}`)
+        .setTitle(`${formatTotalHits(hits)} results for ${inlineCode(query)}`)
         .addFields(
           unsupportedSort
             ? [
@@ -589,7 +513,7 @@ export class UserCommand extends Subcommand {
         .addFields(createFields(hits))
     )
 
-    const total = typeof hits.total === 'number' ? hits.total : hits.total?.value
+    const total = resolveTotalHits(hits)
     if (!total || total <= config.itemsPerPage) {
       if (!total) this.container.logger.warn(`Invalid total hits for query ${query} (${hits.total})`)
       return paginatedMessage
@@ -610,9 +534,8 @@ export class UserCommand extends Subcommand {
   }
 
   public async chatInputUser(interaction: Subcommand.ChatInputCommandInteraction) {
-    await interaction.deferReply()
-
     const stopwatch = new Stopwatch()
+    await deferReply(interaction)
 
     const query = interaction.options.getString('query', true),
       sort = (interaction.options.getString('sort') ?? 'relevance') as UserSort
@@ -629,7 +552,7 @@ export class UserCommand extends Subcommand {
       const response = await searchUser(query, sort !== 'relevance' ? { [sort]: 'desc' } : undefined, config.itemsPerPage)
       if (response === null) return interaction.editReply(this.#USER_NOT_FOUND)
       const hits = response.hits,
-        total = typeof hits.total === 'number' ? hits.total : hits.total?.value
+        total = resolveTotalHits(hits)
       if (!total || total === 0) return interaction.editReply(this.#USER_NOT_FOUND)
 
       const paginatedMessage = this.lazyPaginatedMessageUser(hits, query, type, sort, unsupportedSort, stopwatch)
@@ -659,9 +582,98 @@ export class UserCommand extends Subcommand {
       return paginatedMessage.run(interaction, interaction.user)
     }
   }
-}
 
-type CodeSortOptions = 'votes' | 'forks' | 'oldest' | 'newest'
+  private pageEmbedFieldProgram(result: ElasticScratchpadDocument) {
+    const valueArr = [`${result.votes.toLocaleString()} votes`, `${result.forks.toLocaleString()} spin-offs`]
+    if (result.created) valueArr.unshift(time(new Date(result.created), 'd'))
+    return {
+      name: truncate(result.title ?? 'Untitled', EmbedLimits.MaximumFieldNameLength),
+      value: hyperlink('🔗', programURL(result.scratchpadID)) + EN_SPACE_CHAR + valueArr.join(BULLET_SEPARATOR),
+    } as EmbedField
+  }
+
+  private lazyPaginatedMessageProgram(
+    hits: SearchHitsMetadata<ElasticScratchpadDocument>,
+    queries: QueryDslQueryContainer[],
+    sort: Record<string, string> | undefined,
+    stopwatch: Stopwatch
+  ) {
+    const paginatedMessage = new LazyPaginatedMessage({
+      template: new EmbedBuilder() //
+        .setColor(Colors.Green)
+        .setTitle(`${formatTotalHits(hits)} results`)
+        .setFooter({
+          text: formatStopwatch(stopwatch),
+        }),
+    })
+
+    const createFields = (hits: SearchHitsMetadata<ElasticScratchpadDocument>) => {
+      return hits.hits
+        .filter(({ _source }) => typeof _source !== undefined)
+        .map(({ _source }) => {
+          _source = _source as ElasticScratchpadDocument
+          return this.pageEmbedFieldProgram(_source)
+        })
+    }
+
+    paginatedMessage.addPageEmbed((embed) =>
+      embed //
+        .addFields(createFields(hits))
+    )
+
+    const total = resolveTotalHits(hits)
+    if (!total || total <= config.itemsPerPage) {
+      if (!total) this.container.logger.warn(`Invalid total hits for query ${queries} (${hits.total})`)
+      return paginatedMessage
+    }
+
+    for (let i = config.itemsPerPage; i < total; i += config.itemsPerPage) {
+      paginatedMessage.addAsyncPageEmbed(async (embed) => {
+        const stopwatch = new Stopwatch()
+        const results = await searchBoolean(Indices.Scratchpads, queries, sort, config.itemsPerPage, i)
+        if (!results) return embed
+        return embed //
+          .addFields(createFields(results.hits))
+          .setFooter({ text: formatStopwatch(stopwatch) })
+      })
+      if (paginatedMessage.pages.length >= SapphirePaginatedMessageLimits.MaximumPages) break
+    }
+
+    return paginatedMessage
+  }
+
+  public async chatInputProgram(interaction: Subcommand.ChatInputCommandInteraction) {
+    const stopwatch = new Stopwatch()
+    await deferReply(interaction)
+
+    const title = interaction.options.getString('title'),
+      code = interaction.options.getString('code'),
+      description = interaction.options.getString('description'),
+      type = interaction.options.getString('type') as ProgramType,
+      user = interaction.options.getString('user'),
+      sortOption = interaction.options.getString('sort') as ProgramSort | undefined
+    if (!title && !code && !description) return interaction.editReply(this.#NO_QUERY)
+    if (profanity.exists(`${title}\n${code}`)) return interaction.editReply(this.#INAPPROPRIATE_QUERY)
+    let kaid
+    if (user && !isKaid(user)) kaid = await resolveKaid(user)
+    const queries = [
+      title ? simpleQueryStringQuery(title, 'title') : null,
+      code ? simpleQueryStringQuery(code, 'code') : null,
+      description ? simpleQueryStringQuery(description, 'description') : null,
+      type ? termsQuery('type', ProgramTypeScratchpadType[type] as string[]) : null,
+      kaid ? termQuery('authorID', kaid.slice(5)) : null,
+    ].filter((query) => query !== null) as QueryDslQueryContainer[]
+    const sort = sortOption ? { [this.ProgramSortField[sortOption]]: sortOption === 'oldest' ? 'asc' : 'desc' } : undefined
+    const response = await searchBoolean(Indices.Scratchpads, queries, sort, config.itemsPerPage)
+    if (response === null) return interaction.editReply(this.#PROGRAM_NOT_FOUND)
+    const hits = response.hits,
+      total = resolveTotalHits(hits)
+    if (!total || total === 0) return interaction.editReply(this.#PROGRAM_NOT_FOUND)
+
+    const paginatedMessage = this.lazyPaginatedMessageProgram(hits, queries, sort, stopwatch)
+    return paginatedMessage.run(interaction, interaction.user)
+  }
+}
 
 const enum UserSearchType {
   Elasticsearch = 'elasticsearch',
@@ -693,4 +705,11 @@ interface AuthorResult {
   replies: number
   projectquestions: number
   projectanswers: number
+}
+
+const enum ProgramSort {
+  Votes = 'votes',
+  Forks = 'forks',
+  Oldest = 'oldest',
+  Newest = 'newest',
 }
