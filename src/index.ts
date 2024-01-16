@@ -1,13 +1,13 @@
 import './lib/setup'
 import { LogLevel, SapphireClient } from '@sapphire/framework'
-import { Partials } from 'discord.js'
+import { IntentsBitField, Partials } from 'discord.js'
 
 export const client = new SapphireClient({
   logger: {
     level: LogLevel.Debug,
   },
   shards: 'auto',
-  intents: ['Guilds'],
+  intents: [IntentsBitField.Flags.Guilds, IntentsBitField.Flags.DirectMessages],
   partials: [Partials.Channel],
   loadMessageCommandListeners: true,
 })

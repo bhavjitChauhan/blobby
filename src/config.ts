@@ -35,4 +35,7 @@ export default {
     },
   },
   itemsPerPage: 8,
+  ai: {
+    maxContextTokens: 2048,
+  },
 }
