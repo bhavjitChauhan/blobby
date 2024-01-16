@@ -1,10 +1,10 @@
 import { Collection, Db, MongoClient, type WithId } from 'mongodb'
 import { performance } from 'perf_hooks'
 import config from '../../config'
-import { assertEnvVars } from '../env-parser'
+import { softAssertEnvVars } from '../env-parser'
 import type { AuthorDocument, CollectionStatistics, ScratchpadDocument } from './types'
 
-assertEnvVars('MONGODB_URI', 'MONGODB_AUTHORS_COLLECTION', 'MONGODB_SCRATCHPADS_COLLECTION')
+softAssertEnvVars('MONGODB_URI', 'MONGODB_AUTHORS_COLLECTION', 'MONGODB_SCRATCHPADS_COLLECTION')
 process.env.MONGODB_URI = process.env.MONGODB_URI as string
 process.env.MONGODB_AUTHORS_COLLECTION = process.env.MONGODB_AUTHORS_COLLECTION as string
 process.env.MONGODB_SCRATCHPADS_COLLECTION = process.env.MONGODB_SCRATCHPADS_COLLECTION as string

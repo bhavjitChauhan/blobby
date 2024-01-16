@@ -1,12 +1,12 @@
 import { ApplyOptions } from '@sapphire/decorators'
 import { Command } from '@sapphire/framework'
 import { EmbedBuilder } from 'discord.js'
-import { assertEnvVars } from '../../lib/env-parser'
+import { softAssertEnvVars } from '../../lib/env-parser'
 import { getLatency } from '../../lib/mongodb/mongodb'
 import { formatFieldHeading } from '../../lib/utils/discord'
 import { ping } from '../../lib/utils/general'
 
-assertEnvVars('ELASTICSEARCH_URI')
+softAssertEnvVars('ELASTICSEARCH_URI')
 
 @ApplyOptions<Command.Options>({
   description: "Get the bot's latency",

@@ -1,9 +1,9 @@
 import { Client } from '@elastic/elasticsearch'
-import { assertEnvVars } from '../env-parser'
+import { softAssertEnvVars } from '../env-parser'
 import { Program, ProgramType } from '@bhavjit/khan-api'
 import type { ScratchpadDocument } from './types'
 
-assertEnvVars('ELASTICSEARCH_URI', 'ELASTICSEARCH_AUTHORS_INDEX', 'ELASTICSEARCH_SCRATCHPADS_INDEX', 'ELASTICSEARCH_MESSAGES_INDEX')
+softAssertEnvVars('ELASTICSEARCH_URI', 'ELASTICSEARCH_AUTHORS_INDEX', 'ELASTICSEARCH_SCRATCHPADS_INDEX', 'ELASTICSEARCH_MESSAGES_INDEX')
 process.env.ELASTICSEARCH_URI = process.env.ELASTICSEARCH_URI as string
 process.env.ELASTICSEARCH_AUTHORS_INDEX = process.env.ELASTICSEARCH_AUTHORS_INDEX as string
 process.env.ELASTICSEARCH_SCRATCHPADS_INDEX = process.env.ELASTICSEARCH_SCRATCHPADS_INDEX as string

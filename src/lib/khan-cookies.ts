@@ -1,7 +1,7 @@
 import { Client } from '@bhavjit/khan-api'
-import { assertEnvVars } from './env-parser'
+import { softAssertEnvVars } from './env-parser'
 
-assertEnvVars('KHAN_USERNAME', 'KHAN_PASSWORD')
+softAssertEnvVars('KHAN_USERNAME', 'KHAN_PASSWORD')
 process.env.KHAN_USERNAME = process.env.KHAN_USERNAME as string
 process.env.KHAN_PASSWORD = process.env.KHAN_PASSWORD as string
 
